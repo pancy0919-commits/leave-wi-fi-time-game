@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>高品質密室逃脫大挑戰</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #1a1a2e;
+            color: #fff;
+            font-family: sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            overflow: hidden;
+            user-select: none;
+        }
+        .game-container {
+            width: 500px;
+            height: 560px;
+            background-color: #162447;
+            border: 4px solid #1f4068;
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        .header {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 20px;
+            box-sizing: border-box;
+            background-color: #1f4068;
+            font-size: 15px;
+            font-weight: bold;
+        }
+        .room-view {
+            flex: 1;
+            width: 100%;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .door {
+            width: 150px;
+            height: 220px;
+            background-color: #e43f5a;
+            border: 5px solid #b33045;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            font-weight: bold;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.4);
+            position: relative;
+        }
+        .door::after {
+            content: '●';
+            position: absolute;
+            right: 12px;
+            top: 100px;
+            color: #ffd700;
+            font-size: 18px;
+        }
+        .inventory-bar {
+            width: 100%;
+            height: 65px;
+            background-color: #1f4068;
+            display: flex;
+            align-items: center;
+            padding: 0 15px;
+            box-sizing: border-box;
+            gap: 10px;
+        }
+        .slot {
+            width: 45px;
+            height: 45px;
+            background-color: #162447;
+            border: 2px dashed #e43f5a;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            cursor: pointer;
+        }
+        .slot.has-item {
+            border-style: solid;
+            border-color: #ffd700;
+            background-color: #243b55;
+        }
+        .interactive-item {
+            position: absolute;
+            cursor: pointer;
+            font-size: 36px;
+            transition: transform 0.2s;
+        }
+        .interactive-item:hover {
+            transform: scale(1.15);
+        }
+        .message-box {
+            position: absolute;
+            bottom: 75px;
+            background: rgba(0, 0, 0, 0.85);
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 14px;
+            color: #ffd700;
+            pointer-events: none;
+            transition: opacity 0.3s;
+            z-index: 10;
+        }
+        .control-panel {
+            margin-top: 12px;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        input, button {
+            padding: 6px 12px;
+            font-size: 14px;
+            border-radius: 4px;
+            border: none;
+        }
+        input {
+            background-color: #162447;
+            color: #fff;
+            border: 1px solid #e43f5a;
+            text-align: center;
+        }
+        button {
+            background-color: #e43f5a;
+            color: #fff;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #b33045;
+        }
+        .wire {
+            width: 75px;
+            height: 12px;
+            background-color: #555;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        .wire.connected {
+            background-color: #2ed573;
+            box-shadow: 0 0 8px #2ed573;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="game-container">
+        <div class="header">
+            <span id="roomTitle">第 1 關：尋找密碼紙條</span>
+            <span id="timer">時間: 0秒</span>
+        </div>
+
+        <div class="room-view" id="roomView">
+            <div class="door" id="mainDoor">門</div>
+            <div id="messageBox" class="message-box" style="opacity: 0;">提示訊息</div>
+        </div>
+
+        <div class="inventory-bar" id="inventoryBar">
+            <span style="font-size: 13px; color: #a0aec0; margin-right: 5px;">道具：</span>
+            <div class="slot" id="slot0"></div>
+            <div class="slot" id="slot1"></div>
+        </div>
+    </div>
+
+    <script>
+        let currentLevel = 1;
+        let seconds = 0;
+        let timerInterval = null;
+        let inventory = [];
+        let levelState = {};
+
+        const roomTitle = document.getElementById("roomTitle");
+        const timerEl = document.getElementById("timer");
+        const roomView = document.getElementById("roomView");
+        const messageBox = document.getElementById("messageBox");
+        const mainDoor = document.getElementById("mainDoor");
+
+        function startTimer() {
+            timerInterval = setInterval(() => {
+                seconds++;
+                timerEl.innerText = `時間: ${seconds}秒`;
+            }, 1000);
+        }
+
+        function showMessage(text) {
+            messageBox.innerText = text;
+            messageBox.style.opacity = 1;
+            setTimeout(() => { messageBox.style.opacity = 0; }, 2500);
+        }
+
+        function updateInventory() {
+            for (let i = 0; i < 2; i++) {
+                const slot = document.getElementById(`slot${i}`);
+                slot.innerHTML = "";
+                slot.classList.remove("has-item");
+                if (inventory[i]) {
+                    slot.innerHTML = inventory[i].icon;
+                    slot.classList.add("has-item");
+                }
+            }
+        }
+
+        function loadLevel() {
+            const oldPanel = document.getElementById("controlPanel");
+            if (oldPanel) oldPanel.remove();
+            const oldItems = document.querySelectorAll(".interactive-item");
+            oldItems.forEach(el => el.remove());
+
+            if (currentLevel === 1) {
+                roomTitle.innerText = "第 1 關：尋找密碼紙條";
+                mainDoor.style.display = "flex";
+                
+                let note = document.createElement("div");
+                note.className = "interactive-item";
+                note.innerHTML = "📜";
+                note.style.left = "70px"; note.style.top = "150px";
+                note.onclick = () => showMessage("你打開紙條，看到上面寫著：4876");
+                roomView.appendChild(note);
+
+                createControlPanel(`
+                    <input type="text" id="p1" placeholder="輸入4位密碼" style="width:110px;">
+                    <button onclick="checkLevel1()">開門</button>
+                `);
+
+            } else if (currentLevel === 2) {
+                roomTitle.innerText = "第 2 關：取得鑰匙";
+                mainDoor.style.display = "flex";
+
+                let key = document.createElement("div");
+                key.className = "interactive-item";
+                key.innerHTML = "🔑";
+                key.style.right = "60px"; key.style.top = "240px";
+                key.onclick = () => {
+                    inventory.push({ id: "key", icon: "🔑" });
+                    updateInventory();
+                    key.remove();
+                    showMessage("你撿起了鑰匙放入道具欄！");
+                };
+                roomView.appendChild(key);
+
+                createControlPanel(`
+                    <button onclick="checkLevel2()">用道具欄鑰匙開門</button>
+                `);
+
+            } else if (currentLevel === 3) {
+                roomTitle.innerText = "第 3 關：倒水解謎";
+                mainDoor.style.display = "flex";
+                levelState.cupHasWater = false;
+
+                let cup = document.createElement("div");
+                cup.className = "interactive-item";
+                cup.innerHTML = "🥛";
+                cup.style.left = "220px"; cup.style.top = "190px";
+                cup.onclick = () => {
+                    if (inventory.some(i => i.id === "water")) {
+                        inventory = inventory.filter(i => i.id !== "water");
+                        updateInventory();
+                        levelState.cupHasWater = true;
+                        cup.innerHTML = "🥃";
+                        showMessage("水倒入杯中，浮現出隱藏數字：9527");
+                    } else if (levelState.cupHasWater) {
+                        showMessage("杯子裡已經有水了，數字是 9527");
+                    } else {
+                        showMessage("空杯子需要先倒水才行...");
+                    }
+                };
+                roomView.appendChild(cup);
+
+                let bottle = document.createElement("div");
+                bottle.className = "interactive-item";
+                bottle.innerHTML = "🏺";
+                bottle.style.left = "60px"; bottle.style.top = "250px";
+                bottle.onclick = () => {
+                    if (!inventory.some(i => i.id === "water")) {
+                        inventory.push({ id: "water", icon: "🏺" });
+                        updateInventory();
+                        bottle.remove();
+                        showMessage("你拿起了水壺！");
+                    }
+                };
+                roomView.appendChild(bottle);
+
+                createControlPanel(`
+                    <input type="text" id="p3" placeholder="輸入密碼" style="width:90px;">
+                    <button onclick="checkLevel3()">解鎖</button>
+                `);
+
+            } else if (currentLevel === 4) {
+                roomTitle.innerText = "第 4 關：化學試管調配";
+                mainDoor.style.display = "flex";
+                levelState.pots = [];
+
+                let p1 = document.createElement("div");
+                p1.className = "interactive-item"; p1.innerHTML = "🔴"; p1.style.left = "90px"; p1.style.top = "200px";
+                p1.onclick = () => addPotion("紅"); roomView.appendChild(p1);
+
+                let p2 = document.createElement("div");
+                p2.className = "interactive-item"; p2.innerHTML = "🔵"; p2.style.left = "220px"; p2.style.top = "200px";
+                p2.onclick = () => addPotion("藍"); roomView.appendChild(p2);
+
+                let p3 = document.createElement("div");
+                p3.className = "interactive-item"; p3.innerHTML = "🟢"; p3.style.left = "350px"; p3.style.top = "200px";
+                p3.onclick = () => addPotion("綠"); roomView.appendChild(p3);
+
+                createControlPanel(`
+                    <span id="potionText" style="font-size:13px; color:#cbd5e0;">已選: 無</span>
+                    <button onclick="checkLevel4()">倒入混合 (需紅+藍)</button>
+                `);
+
+            } else if (currentLevel === 5) {
+                roomTitle.innerText = "第 5 關：接通電線";
+                mainDoor.style.display = "flex";
+                levelState.wires = { 1: false, 2: false, 3: false };
+
+                let wirePanel = document.createElement("div");
+                wirePanel.id = "controlPanel";
+                wirePanel.className = "control-panel";
+                wirePanel.style.flexDirection = "column";
+                wirePanel.style.gap = "8px";
+                wirePanel.innerHTML = `
+                    <div style="display:flex; gap:12px;">
+                        <div class="wire" id="w1" onclick="toggleWire(1)"></div>
+                        <div class="wire" id="w2" onclick="toggleWire(2)"></div>
+                        <div class="wire" id="w3" onclick="toggleWire(3)"></div>
+                    </div>
+                    <button onclick="checkLevel5()">通電開門</button>
+                `;
+                roomView.appendChild(wirePanel);
+
+            } else if (currentLevel === 6) {
+                roomTitle.innerText = "第 6 關：齒輪對齊";
+                mainDoor.style.display = "flex";
+                
+                let gear = document.createElement("div");
+                gear.className = "interactive-item";
+                gear.innerHTML = "⚙️";
+                gear.style.left = "220px"; gear.style.top = "190px";
+                gear.onclick = () => showMessage("齒輪轉動了，請點擊下方按鈕對齊機械結構");
+                roomView.appendChild(gear);
+
+                createControlPanel(`
+                    <button onclick="checkLevel6()">對齊機械齒輪</button>
+                `);
+
+            } else if (currentLevel === 7) {
+                roomTitle.innerText = "第 7 關：雷射保全解除";
+                mainDoor.style.display = "flex";
+
+                let scanner = document.createElement("div");
+                scanner.className = "interactive-item";
+                scanner.innerHTML = "📟";
+                scanner.style.left = "220px"; scanner.style.top = "190px";
+                scanner.onclick = () => showMessage("保全終端機提示：預設解除密碼為 8888");
+                roomView.appendChild(scanner);
+
+                createControlPanel(`
+                    <input type="text" id="p7" placeholder="輸入保全密碼" style="width:110px;">
+                    <button onclick="checkLevel7()">解除保全</button>
+                `);
+
+            } else if (currentLevel === 8) {
+                roomTitle.innerText = "第 8 關：終極逃生大門";
+                mainDoor.style.display = "flex";
+
+                let shield = document.createElement("div");
+                shield.className = "interactive-item";
+                shield.innerHTML = "🛡️";
+                shield.style.left = "220px"; shield.style.top = "190px";
+                shield.onclick = () => showMessage("最終安全鎖密碼：0000");
+                roomView.appendChild(shield);
+
+                createControlPanel(`
+                    <input type="text" id="p8" placeholder="輸入最終密碼" style="width:110px;">
+                    <button onclick="checkLevel8()">逃脫成功！</button>
+                `);
+
+            } else {
+                endGame();
+            }
+        }
+
+        function createControlPanel(htmlContent) {
+            let panel = document.createElement("div");
+            panel.id = "controlPanel";
+            panel.className = "control-panel";
+            panel.innerHTML = htmlContent;
+            roomView.appendChild(panel);
+        }
+
+        function checkLevel1() {
+            let val = document.getElementById("p1").value;
+            if (val === "4876") {
+                showMessage("密碼正確！");
+                currentLevel = 2;
+                setTimeout(loadLevel, 800);
+            } else {
+                showMessage("密碼錯誤！");
+            }
+        }
+
+        function checkLevel2() {
+            if (inventory.some(i => i.id === "key")) {
+                showMessage("鑰匙解鎖成功！");
+                currentLevel = 3;
+                setTimeout(loadLevel, 800);
+            } else {
+                showMessage("門鎖著，需要先拿鑰匙！");
+            }
+        }
+
+        function checkLevel3() {
+            let val = document.getElementById("p3").value;
+            if (val === "9527" && levelState.cupHasWater) {
+                showMessage("解謎成功！");
+                currentLevel = 4;
+                setTimeout(loadLevel, 800);
+            } else {
+                showMessage("密碼錯誤，或者杯子還沒加水！");
+            }
+        }
+
+        function addPotion(color) {
+            if (levelState.pots.length < 2) {
+                levelState.pots.push(color);
+                document.getElementById("potionText").innerText = `已選: ${levelState.pots.join("+")}`;
+            } else {
+                showMessage("試管最多只能選兩種藥水！");
+            }
+        }
+
+        function checkLevel4() {
+            let p = levelState.pots;
+            if (p.length === 2 && ((p[0] === "紅" && p[1] === "藍") || (p[0] === "藍" && p[1] === "紅"))) {
+                showMessage("調配成功！化學反應開啟門！");
+                currentLevel = 5;
+                setTimeout(loadLevel, 800);
+            } else {
+                showMessage("配方錯誤，試管冒煙失敗！");
+                levelState.pots = [];
+                document.getElementById("potionText").innerText = `已選: 無`;
+            }
+        }
+
+        function toggleWire(num) {
+            levelState.wires[num] = !levelState.wires[num];
+            let el = document.getElementById(`w${num}`);
+            if (levelState.wires[num]) {
+                el.classList.add("connected");
+            } else {
+                el.classList.remove("connected");
+            }
+        }
+
+        function checkLevel5() {
+            if (levelState.wires[1] && levelState.wires[2] && levelState.wires[3]) {
+                showMessage("電流接通！");
+                currentLevel = 6;
+                setTimeout(loadLevel, 800);
+            } else {
+                showMessage("還有電線是斷路的！");
+            }
+        }
+
+        function checkLevel6() {
+            showMessage("齒輪完美對齊！");
+            currentLevel = 7;
+            setTimeout(loadLevel, 800);
+        }
+
+        function checkLevel7() {
+            let val = document.getElementById("p7").value;
+            if (val === "8888") {
+                showMessage("保全系統解除！");
+                currentLevel = 8;
+                setTimeout(loadLevel, 800);
+            } else {
+                showMessage("保全密碼錯誤！");
+            }
+        }
+
+        function checkLevel8() {
+            let val = document.getElementById("p8").value;
+            if (val === "0000") {
+                endGame();
+            } else {
+                showMessage("最終密碼錯誤！");
+            }
+        }
+
+        function endGame() {
+            clearInterval(timerInterval);
+            mainDoor.style.display = "none";
+            
+            let score = seconds <= 20 ? 100 : Math.max(10, 100 - (seconds - 20) * 3);
+            let rankEmoji = seconds <= 20 ? "🏆" : (seconds <= 40 ? "🥈" : "🥉");
+            let rankTitle = seconds <= 20 ? "黃金小獎杯 (閃電極速王)" : "銀牌逃脫者";
+
+            roomTitle.innerText = "8關全部通關！";
+            roomView.innerHTML = `
+                <div style="text-align: center;">
+                    <div style="font-size: 55px; margin-bottom: 5px;">${rankEmoji}</div>
+                    <h3 style="color: #ffd700; margin: 5px 0;">${rankTitle}</h3>
+                    <p style="font-size: 15px; color: #cbd5e0; margin: 8px 0;">總耗時：${seconds} 秒</p>
+                    <p style="font-size: 16px; color: #fff; font-weight: bold;">最終得分：${score} 分</p>
+                    <button onclick="location.reload()" style="margin-top: 10px;">再玩一次</button>
+                </div>
+            `;
+            document.getElementById("inventoryBar").style.display = "none";
+        }
+
+        startTimer();
+        loadLevel();
+    </script>
+</body>
+</html>
