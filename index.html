@@ -617,7 +617,48 @@
             }
         }
 
-        function endGame() {
+            function endGame() {
+            clearInterval(timerInterval);
+            mainDoor.style.display = "none";
+            
+            let score = seconds <= 30 ? 100 : Math.max(10, 100 - (seconds - 30) * 2);
+            let rankEmoji = seconds <= 30 ? "🏆" : (seconds <= 60 ? "🥈" : "🥉");
+            let rankTitle = seconds <= 30 ? "黃金小獎杯 (閃電極速王)" : "銀牌逃脫者";
+
+            // --- 🏆 排行榜紀錄邏輯 ---
+            let leaderboard = JSON.parse(localStorage.getItem("wifi_game_leaderboard") || "[]");
+            leaderboard.push({ time: seconds, score: score, date: new Date().toLocaleDateString() });
+            // 依分數高低排序，若分數相同則按時間少者優先
+            leaderboard.sort((a, b) => b.score - a.score || a.time - b.time);
+            // 只保留前 3 名
+            leaderboard = leaderboard.slice(0, 3);
+            localStorage.setItem("wifi_game_leaderboard", JSON.stringify(leaderboard));
+
+            // 生成排行榜 HTML 列表
+            let rankListHTML = leaderboard.map((item, index) => 
+                `<li style="margin: 3px 0;">第 ${index + 1} 名：${item.score}分 (${item.time}秒)</li>`
+            ).join("");
+
+            roomTitle.innerText = "8關全部完美通關！";
+            roomView.innerHTML = `
+                <div style="text-align: center; max-height: 400px; overflow-y: auto;">
+                    <div style="font-size: 45px; margin-bottom: 5px;">${rankEmoji}</div>
+                    <h3 style="color: #ffd700; margin: 5px 0;">${rankTitle}</h3>
+                    <p style="font-size: 14px; color: #cbd5e0; margin: 4px 0;">本次耗時：${seconds} 秒 | 得分：${score} 分</p>
+                    
+                    <div style="background: #1f4068; padding: 10px 15px; border-radius: 8px; margin: 10px auto; width: 260px; text-align: left; border: 1px solid #ffd700;">
+                        <h4 style="margin: 0 0 5px 0; color: #ffd700; text-align: center; font-size: 15px;">🏆 英雄排行榜 (Top 3)</h4>
+                        <ol style="padding-left: 20px; margin: 0; font-size: 13px; color: #fff;">
+                            ${rankListHTML}
+                        </ol>
+                    </div>
+
+                    <button onclick="location.reload()" style="margin-top: 5px;">再挑戰一次</button>
+                </div>
+            `;
+            document.getElementById("inventoryBar").style.display = "none";
+        }
+
             clearInterval(timerInterval);
             mainDoor.style.display = "none";
             
