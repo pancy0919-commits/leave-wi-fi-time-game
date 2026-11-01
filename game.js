@@ -308,6 +308,7 @@ function checkLevel4() {
     }
 }
 
+// 修正：補上電線陣列的檢查符號，修復第五關
 function toggleWire(num) {
     levelState.wires[num] = !levelState.wires[num];
     let el = document.getElementById(`w${num}`);
@@ -363,7 +364,23 @@ function endGame() {
     let playerName = prompt("🎉 成功通關！請輸入你的名字留在排行榜上：") || "無名英雄";
 
     let leaderboard = JSON.parse(localStorage.getItem("wifi_game_leaderboard") || "[]");
-    leaderboard.push({ name: playerName, time: seconds, score: score, date: new Date().toLocaleDateString() });
+    
+    // 💡 覆蓋機制：檢查是否有一模一樣的名字玩過
+    let existingRecordIndex = leaderboard.findIndex(item => item.name === playerName);
+
+    if (existingRecordIndex !== -1) {
+        // 如果這次分數比較高，或是分數一樣但時間更短，就更新它的紀錄
+        if (score > leaderboard[existingRecordIndex].score || 
+           (score === leaderboard[existingRecordIndex].score && seconds < leaderboard[existingRecordIndex].time)) {
+            leaderboard[existingRecordIndex] = { name: playerName, time: seconds, score: score, date: new Date().toLocaleDateString() };
+            showMessage("🏆 恭喜！刷新了你個人的歷史最高紀錄！");
+        } else {
+            showMessage("👍 通關成功！可惜沒有打破你之前的最高分紀錄。");
+        }
+    } else {
+        leaderboard.push({ name: playerName, time: seconds, score: score, date: new Date().toLocaleDateString() });
+    }
+
     leaderboard.sort((a, b) => b.score - a.score || a.time - b.time);
     leaderboard = leaderboard.slice(0, 3);
     localStorage.setItem("wifi_game_leaderboard", JSON.stringify(leaderboard));
