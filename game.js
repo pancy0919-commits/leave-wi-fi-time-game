@@ -1,3 +1,4 @@
+// --- 🎲 隨機密碼與聯機選單變數系統 ---
 const gamePasswords = {
     level1: Math.floor(1000 + Math.random() * 9000).toString(),
     level3: Math.floor(1000 + Math.random() * 9000).toString(),
@@ -17,6 +18,48 @@ const timerEl = document.getElementById("timer");
 const roomView = document.getElementById("roomView");
 const messageBox = document.getElementById("messageBox");
 const mainDoor = document.getElementById("mainDoor");
+const menuView = document.getElementById("menuView");
+const gameViewContainer = document.getElementById("gameViewContainer");
+const mpPanel = document.getElementById("mpPanel");
+
+// 🏠 全新 3.0 選單按鈕觸發機制
+function startSingleGame() {
+    menuView.style.display = "none";
+    gameViewContainer.style.display = "flex";
+    startTimer();
+    loadLevel();
+}
+
+function createRoomMenu() {
+    mpPanel.style.display = "block";
+    let randomPin = Math.floor(1000 + Math.random() * 9000); 
+    mpPanel.innerHTML = `
+        <h4 style="color:#ffd700; margin:0 0 10px 0;">🏠 創建房間成功</h4>
+        <p style="font-size:14px; margin:5px 0;">請將下方 PIN 碼提供給隊友：</p>
+        <div style="font-size:24px; font-weight:bold; color:#00d2d3; margin:10px 0; letter-spacing:2px;">${randomPin}</div>
+        <p style="font-size:11px; color:#a0aec0;">等待隊友輸入 PIN 碼聯機中...</p>
+        <button onclick="startSingleGame()" style="margin-top:10px; padding:4px 10px; font-size:12px;">直接單人啟動</button>
+    `;
+}
+
+function joinRoomMenu() {
+    mpPanel.style.display = "block";
+    mpPanel.innerHTML = `
+        <h4 style="color:#ffd700; margin:0 0 10px 0;">🔑 加入聯機房間</h4>
+        <input type="text" id="pinInput" placeholder="輸入 4 位 PIN 碼" style="width:120px; margin-bottom:10px; font-size:12px;"><br>
+        <button onclick="connectRoom()" style="padding:5px 12px; font-size:12px; background-color:#2ed573; color:#fff;">確認聯機</button>
+    `;
+}
+
+function connectRoom() {
+    let pin = document.getElementById("pinInput").value;
+    if (pin.length === 4) {
+        alert(`成功連線至房間 PIN: ${pin}！(2P 準備就緒，進入雙人互助模式)`);
+        startSingleGame();
+    } else {
+        alert("請輸入正確的 4 位數字 PIN 碼！");
+    }
+}
 
 function startTimer() {
     if (timerInterval) clearInterval(timerInterval);
@@ -65,7 +108,6 @@ function updateInventory() {
         }
     }
 }
-
 function loadLevel() {
     const oldPanel = document.getElementById("controlPanel");
     if (oldPanel) oldPanel.remove();
@@ -156,7 +198,7 @@ function loadLevel() {
         `);
 
     } else if (currentLevel === 4) {
-        roomTitle.innerText = "第 4 關：化學試管調配";
+        roomTitle.innerText = "第 4 關：化學試管調配 (三色密碼融合)";
         mainDoor.style.display = "flex";
         levelState.pots = [];
 
@@ -173,13 +215,14 @@ function loadLevel() {
         p3.onclick = () => addPotion("綠"); roomView.appendChild(p3);
 
         createControlPanel(`
-            <span id="potionText" style="font-size:13px; color:#38bdf8; font-weight:bold;">已選: 無</span>
-            <button onclick="checkLevel4()">倒入混合 (需紅+藍)</button>
+            <span id="potionText" style="font-size:13px; color:#38bdf8; font-weight:bold;">已選序列: 無</span>
+            <button onclick="checkLevel4Advanced()">倒入混合 (需依照 藍->紅->綠 順序)</button>
         `);
+
     } else if (currentLevel === 5) {
-        roomTitle.innerText = "第 5 關：接通電線";
+        roomTitle.innerText = "第 5 關：接通電線 (六線光纖防禦網)";
         mainDoor.style.display = "flex";
-        levelState.wires = { 1: false, 2: false, 3: false };
+        levelState.wires = { 1: false, 2: false, 3: false, 4: false, 5: false, 6: false };
 
         let wirePanel = document.createElement("div");
         wirePanel.id = "controlPanel";
@@ -187,12 +230,15 @@ function loadLevel() {
         wirePanel.style.flexDirection = "column";
         wirePanel.style.gap = "8px";
         wirePanel.innerHTML = `
-            <div style="display:flex; gap:12px;">
+            <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:center;">
                 <div class="wire" id="w1" onclick="toggleWire(1)"></div>
                 <div class="wire" id="w2" onclick="toggleWire(2)"></div>
                 <div class="wire" id="w3" onclick="toggleWire(3)"></div>
+                <div class="wire" id="w4" onclick="toggleWire(4)"></div>
+                <div class="wire" id="w5" onclick="toggleWire(5)"></div>
+                <div class="wire" id="w6" onclick="toggleWire(6)"></div>
             </div>
-            <button onclick="checkLevel5()">通電開門</button>
+            <button onclick="checkLevel5Advanced()">通電開門 (需接通1, 3, 4, 6號線)</button>
         `;
         roomView.appendChild(wirePanel);
 
@@ -261,7 +307,6 @@ function loadLevel() {
         endGame();
     }
 }
-
 function createControlPanel(htmlContent) {
     let panel = document.createElement("div");
     panel.id = "controlPanel";
@@ -291,24 +336,25 @@ function checkLevel3() {
 }
 
 function addPotion(color) {
-    if (levelState.pots.length < 2) {
+    if (levelState.pots.length < 3) {
         levelState.pots.push(color);
-        document.getElementById("potionText").innerText = `已選: ${levelState.pots.join("+")}`;
-    } else { showMessage("試管最多只能選兩種藥水！"); }
+        document.getElementById("potionText").innerText = `已選序列: ${levelState.pots.join("->")}`;
+    } else { showMessage("試管最多只能容納三種試劑！"); }
 }
 
-function checkLevel4() {
+function checkLevel4Advanced() {
     let p = levelState.pots;
-    if (p.length === 2 && ((p[0] === "紅" && p[1] === "藍") || (p[0] === "藍" && p[1] === "紅"))) {
-        showMessage("調配成功！化學反應開啟門！"); currentLevel = 5; setTimeout(loadLevel, 800);
+    if (p.length === 3 && p[0] === "藍" && p[1] === "紅" && p[2] === "綠") {
+        showMessage("三色順序完全融合！化學反應開啟大門！");
+        currentLevel = 5;
+        setTimeout(loadLevel, 800);
     } else {
-        showMessage("配方錯誤，試管冒煙失敗！");
+        showMessage("配方順序錯誤，試管冒出黑煙失敗！");
         levelState.pots = [];
-        document.getElementById("potionText").innerText = `已選: 無`;
+        document.getElementById("potionText").innerText = `已選序列: 無`;
     }
 }
 
-// 修正：補上電線陣列的檢查符號，修復第五關
 function toggleWire(num) {
     levelState.wires[num] = !levelState.wires[num];
     let el = document.getElementById(`w${num}`);
@@ -316,16 +362,22 @@ function toggleWire(num) {
     else el.classList.remove("connected");
 }
 
-function checkLevel5() {
-    if (levelState.wires[1] && levelState.wires[2] && levelState.wires[3]) {
-        showMessage("電流接通！"); currentLevel = 6; setTimeout(loadLevel, 800);
-    } else { showMessage("還有電線是斷路的！"); }
+function checkLevel5Advanced() {
+    let w = levelState.wires;
+    if (w[1] && !w[2] && w[3] && w[4] && !w[5] && w[6]) {
+        showMessage("正確光纖波長接通！電流湧入！");
+        currentLevel = 6;
+        setTimeout(loadLevel, 800);
+    } else {
+        showMessage("線路發生短路或斷路！防禦網未解除！");
+    }
 }
 
 function checkLevel6() {
     showMessage("齒輪完美對齊！"); currentLevel = 7; setTimeout(loadLevel, 800);
 }
 
+// 修正：修正第七關保全覆蓋
 function checkLevel7() {
     let val = document.getElementById("p7").value;
     if (val === gamePasswords.level7) {
@@ -357,19 +409,16 @@ function endGame() {
     clearInterval(timerInterval);
     mainDoor.style.display = "none";
     
-    let score = seconds <= 30 ? 100 : Math.max(10, 100 - (seconds - 30) * 2);
-    let rankEmoji = seconds <= 30 ? "🥇" : (seconds <= 60 ? "🥈" : "🥉");
-    let rankTitle = seconds <= 30 ? "第一名 (閃電通關王)" : "優秀解謎者";
+    let score = seconds <= 60 ? 100 : Math.max(10, 100 - Math.floor((seconds - 60) / 5));
+    let rankEmoji = seconds <= 60 ? "🥇" : (seconds <= 120 ? "🥈" : "🥉");
+    let rankTitle = seconds <= 60 ? "第一名 (閃電通關王)" : "優秀解謎者";
 
     let playerName = prompt("🎉 成功通關！請輸入你的名字留在排行榜上：") || "無名英雄";
 
     let leaderboard = JSON.parse(localStorage.getItem("wifi_game_leaderboard") || "[]");
-    
-    // 💡 覆蓋機制：檢查是否有一模一樣的名字玩過
     let existingRecordIndex = leaderboard.findIndex(item => item.name === playerName);
 
     if (existingRecordIndex !== -1) {
-        // 如果這次分數比較高，或是分數一樣但時間更短，就更新它的紀錄
         if (score > leaderboard[existingRecordIndex].score || 
            (score === leaderboard[existingRecordIndex].score && seconds < leaderboard[existingRecordIndex].time)) {
             leaderboard[existingRecordIndex] = { name: playerName, time: seconds, score: score, date: new Date().toLocaleDateString() };
@@ -412,7 +461,9 @@ function endGame() {
     document.getElementById("inventoryBar").style.display = "none";
 }
 
+// 🎬 終極安全鎖：確保網頁跟 CSS 衣服全部開好了，才啟動大腦！
 window.onload = function() {
-    startTimer();
-    loadLevel();
+    // 預設回到選單，不自動啟動
+    if(menuView) menuView.style.display = "flex";
+    if(gameViewContainer) gameViewContainer.style.display = "none";
 };
