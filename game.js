@@ -176,7 +176,6 @@ function loadLevel() {
             <span id="potionText" style="font-size:13px; color:#38bdf8; font-weight:bold;">已選: 無</span>
             <button onclick="checkLevel4()">倒入混合 (需紅+藍)</button>
         `);
-
     } else if (currentLevel === 5) {
         roomTitle.innerText = "第 5 關：接通電線";
         mainDoor.style.display = "flex";
@@ -256,115 +255,147 @@ function loadLevel() {
                 <input type="text" id="p8" placeholder="輸入綜合密碼" style="width:140px;">
                 <button onclick="checkLevel8Code()">送出密碼</button>
             </div>
-`);
-} else {
-endGame();
+        `);
+
+    } else {
+        endGame();
+    }
 }
-}
+
 function createControlPanel(htmlContent) {
-let panel = document.createElement("div");
-panel.id = "controlPanel";
-panel.className = "control-panel";
-panel.innerHTML = htmlContent;
-roomView.appendChild(panel);
+    let panel = document.createElement("div");
+    panel.id = "controlPanel";
+    panel.className = "control-panel";
+    panel.innerHTML = htmlContent;
+    roomView.appendChild(panel);
 }
+
 function checkLevel1() {
-let val = document.getElementById("p1").value;
-if (val === gamePasswords.level1) {
-showMessage("密碼正確！"); currentLevel = 2; setTimeout(loadLevel, 800);
-} else { showMessage("密碼錯誤！請查看筆記本"); }
+    let val = document.getElementById("p1").value;
+    if (val === gamePasswords.level1) {
+        showMessage("密碼正確！"); currentLevel = 2; setTimeout(loadLevel, 800);
+    } else { showMessage("密碼錯誤！請查看筆記本"); }
 }
+
 function checkLevel2() {
-if (inventory.some(i => i.id === "key")) {
-showMessage("鑰匙解鎖成功！"); currentLevel = 3; setTimeout(loadLevel, 800);
-} else { showMessage("門鎖著，需要先拿鑰匙！"); }
+    if (inventory.some(i => i.id === "key")) {
+        showMessage("鑰匙解鎖成功！"); currentLevel = 3; setTimeout(loadLevel, 800);
+    } else { showMessage("門鎖著，需要先拿鑰匙！"); }
 }
+
 function checkLevel3() {
-let val = document.getElementById("p3").value;
-if (val === gamePasswords.level3 && levelState.cupHasWater) {
-showMessage("解謎成功！"); currentLevel = 4; setTimeout(loadLevel, 800);
-} else { showMessage("密碼錯誤，或者杯子還沒加水！"); }
+    let val = document.getElementById("p3").value;
+    if (val === gamePasswords.level3 && levelState.cupHasWater) {
+        showMessage("解謎成功！"); currentLevel = 4; setTimeout(loadLevel, 800);
+    } else { showMessage("密碼錯誤，或者杯子還沒加水！"); }
 }
+
 function addPotion(color) {
-if (levelState.pots.length < 2) {
-levelState.pots.push(color);
-document.getElementById("potionText").innerText = 已選: ${levelState.pots.join("+")};
-} else { showMessage("試管最多只能選兩種藥水！"); }
+    if (levelState.pots.length < 2) {
+        levelState.pots.push(color);
+        document.getElementById("potionText").innerText = `已選: ${levelState.pots.join("+")}`;
+    } else { showMessage("試管最多只能選兩種藥水！"); }
 }
+
 function checkLevel4() {
-let p = levelState.pots;
-if (p.length === 2 && ((p[0] === "紅" && p[1] === "藍") || (p[0] === "藍" && p[1] === "紅"))) {
-showMessage("調配成功！化學反應開啟門！"); currentLevel = 5; setTimeout(loadLevel, 800);
-} else {
-showMessage("配方錯誤，試管冒煙失敗！");
-levelState.pots = [];
-document.getElementById("potionText").innerText = 已選: 無;
+    let p = levelState.pots;
+    if (p.length === 2 && ((p[0] === "紅" && p[1] === "藍") || (p[0] === "藍" && p[1] === "紅"))) {
+        showMessage("調配成功！化學反應開啟門！"); currentLevel = 5; setTimeout(loadLevel, 800);
+    } else {
+        showMessage("配方錯誤，試管冒煙失敗！");
+        levelState.pots = [];
+        document.getElementById("potionText").innerText = `已選: 無`;
+    }
 }
-}
+
 function toggleWire(num) {
-levelState.wires[num] = !levelState.wires[num];
-let el = document.getElementById(w${num});
-if (levelState.wires[num]) el.classList.add("connected");
-else el.classList.remove("connected");
+    levelState.wires[num] = !levelState.wires[num];
+    let el = document.getElementById(`w${num}`);
+    if (levelState.wires[num]) el.classList.add("connected");
+    else el.classList.remove("connected");
 }
+
 function checkLevel5() {
-if (levelState.wires[1] && levelState.wires[2] && levelState.wires[3]) {
-showMessage("電流接通！"); currentLevel = 6; setTimeout(loadLevel, 800);
-} else { showMessage("還有電線是斷路的！"); }
+    if (levelState.wires[1] && levelState.wires[2] && levelState.wires[3]) {
+        showMessage("電流接通！"); currentLevel = 6; setTimeout(loadLevel, 800);
+    } else { showMessage("還有電線是斷路的！"); }
 }
+
 function checkLevel6() {
-showMessage("齒輪完美對齊！"); currentLevel = 7; setTimeout(loadLevel, 800);
+    showMessage("齒輪完美對齊！"); currentLevel = 7; setTimeout(loadLevel, 800);
 }
+
 function checkLevel7() {
-let val = document.getElementById("p7").value;
-if (val === gamePasswords.level7) {
-showMessage("保全系統解除！"); currentLevel = 8; setTimeout(loadLevel, 800);
-} else { showMessage("保全密碼錯誤！"); }
+    let val = document.getElementById("p7").value;
+    if (val === gamePasswords.level7) {
+        showMessage("保全系統解除！"); currentLevel = 8; setTimeout(loadLevel, 800);
+    } else { showMessage("保全密碼錯誤！"); }
 }
+
 function checkLevel8Code() {
-let val = document.getElementById("p8").value;
-let keyItem = inventory.find(i => i.id === "key");
-if (val === gamePasswords.level8) {
-if (keyItem && keyItem.washed) {
-levelState.finalPhase = "insertKey";
-document.getElementById("finalBox").innerHTML = <button onclick="checkLevel8Key()" style="background-color:#2ed573; color:#fff;">插入鑰匙逃脫！</button>;
-showMessage("密碼正確！請插入鑰匙！");
-} else { showMessage("密碼正確，但鑰匙還沒用水清洗過！"); }
-} else { showMessage("綜合密碼錯誤！提示：請檢視筆記本中的第1關與第3關密碼。"); }
+    let val = document.getElementById("p8").value;
+    let keyItem = inventory.find(i => i.id === "key");
+
+    if (val === gamePasswords.level8) {
+        if (keyItem && keyItem.washed) {
+            levelState.finalPhase = "insertKey";
+            document.getElementById("finalBox").innerHTML = `
+                <button onclick="checkLevel8Key()" style="background-color:#2ed573; color:#fff;">插入鑰匙逃脫！</button>
+            `;
+            showMessage("密碼正確！請插入鑰匙！");
+        } else { showMessage("密碼正確，但鑰匙還沒用水清洗過！"); }
+    } else { showMessage("綜合密碼錯誤！提示：請檢視筆記本中的第1關與第3關密碼。"); }
 }
+
 function checkLevel8Key() {
-let keyItem = inventory.find(i => i.id === "key");
-if (keyItem && keyItem.washed) endGame();
+    let keyItem = inventory.find(i => i.id === "key");
+    if (keyItem && keyItem.washed) endGame();
 }
+
 function endGame() {
-clearInterval(timerInterval);
-mainDoor.style.display = "none";
-let score = seconds <= 30 ? 100 : Math.max(10, 100 - (seconds - 30) * 2);
-let rankEmoji = seconds <= 30 ? "🥇" : (seconds <= 60 ? "🥈" : "🥉");
-let rankTitle = seconds <= 30 ? "第一名 (閃電通關王)" : "優秀解謎者";
-let playerName = prompt("🎉 成功通關！請輸入你的名字留在排行榜上：") || "無名英雄";
-let leaderboard = JSON.parse(localStorage.getItem("wifi_game_leaderboard") || "[]");
-leaderboard.push({ name: playerName, time: seconds, score: score, date: new Date().toLocaleDateString() });
-leaderboard.sort((a, b) => b.score - a.score || a.time - b.time);
-leaderboard = leaderboard.slice(0, 3);
-localStorage.setItem("wifi_game_leaderboard", JSON.stringify(leaderboard));
-let rankListHTML = leaderboard.map((item, index) =>
-<li style="margin: 6px 0; display: flex; justify-content: space-between; border-bottom: 1px dashed rgba(255,255,255,0.2); padding-bottom: 4px;"> <span style="color: #ffd700; font-weight: bold;">第 ${index + 1} 名：${item.name}</span> <span style="color: #ffffff; font-weight: bold;">${item.score} 分 <span style="color: #94a3b8; font-size: 12px;">(${item.time}秒)</span></span> </li>
-).join("");
-roomTitle.innerText = "8關全部完美通關！";
-roomView.innerHTML = `
+    clearInterval(timerInterval);
+    mainDoor.style.display = "none";
+    
+    let score = seconds <= 30 ? 100 : Math.max(10, 100 - (seconds - 30) * 2);
+    let rankEmoji = seconds <= 30 ? "🥇" : (seconds <= 60 ? "🥈" : "🥉");
+    let rankTitle = seconds <= 30 ? "第一名 (閃電通關王)" : "優秀解謎者";
 
-${rankEmoji}
-${rankTitle}
-玩家：${playerName} | 本次耗時：${seconds} 秒 | 最終得分：${score} 分
-🏆 英雄排行榜 (Top 3)
+    let playerName = prompt("🎉 成功通關！請輸入你的名字留在排行榜上：") || "無名英雄";
 
-${rankListHTML}
+    let leaderboard = JSON.parse(localStorage.getItem("wifi_game_leaderboard") || "[]");
+    leaderboard.push({ name: playerName, time: seconds, score: score, date: new Date().toLocaleDateString() });
+    leaderboard.sort((a, b) => b.score - a.score || a.time - b.time);
+    leaderboard = leaderboard.slice(0, 3);
+    localStorage.setItem("wifi_game_leaderboard", JSON.stringify(leaderboard));
 
-再挑戰一次
+    let rankListHTML = leaderboard.map((item, index) => 
+        `<li style="margin: 6px 0; display: flex; justify-content: space-between; border-bottom: 1px dashed rgba(255,255,255,0.2); padding-bottom: 4px;">
+            <span style="color: #ffd700; font-weight: bold;">第 ${index + 1} 名：${item.name}</span>
+            <span style="color: #ffffff; font-weight: bold;">${item.score} 分 <span style="color: #94a3b8; font-size: 12px;">(${item.time}秒)</span></span>
+        </li>`
+    ).join("");
 
-`;
-document.getElementById("inventoryBar").style.display = "none";
+    roomTitle.innerText = "8關全部完美通關！";
+    roomView.innerHTML = `
+        <div style="text-align: center; max-height: 420px; overflow-y: auto; width: 100%; padding: 10px; box-sizing: border-box;">
+            <div style="font-size: 50px; margin-bottom: 2px;">${rankEmoji}</div>
+            <h3 style="color: #ffd700; margin: 4px 0; font-size: 18px; font-weight: bold;">${rankTitle}</h3>
+            <p style="font-size: 13px; color: #cbd5e0; margin: 4px 0;">玩家：<strong>${playerName}</strong> | 本次耗時：<strong>${seconds}</strong> 秒 | 最終得分：<strong style="color:#2ed573;">${score}</strong> 分</p>
+            
+            <div style="background: #1e1e24; padding: 12px 18px; border-radius: 8px; margin: 12px auto; width: 280px; text-align: left; border: 2px solid #ffd700; box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
+                <h4 style="margin: 0 0 8px 0; color: #ffd700; text-align: center; font-size: 15px;">🏆 英雄排行榜 (Top 3)</h4>
+                <ul style="padding-left: 0; list-style: none; margin: 0; font-size: 13px;">
+                    ${rankListHTML}
+                </ul>
+            </div>
+
+            <button onclick="location.reload()" style="background-color: #4b6584; color: #fff; padding: 8px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; border: none; margin-top: 5px;">再挑戰一次</button>
+        </div>
+    `;
+    document.getElementById("inventoryBar").style.display = "none";
 }
-startTimer();
-loadLevel();
+
+window.onload = function() {
+    startTimer();
+    loadLevel();
+};
