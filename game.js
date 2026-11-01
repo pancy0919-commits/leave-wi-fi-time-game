@@ -308,9 +308,12 @@ function loadLevel() {
     }
 }
 function createControlPanel(htmlContent) {
-    let panel = document.createElement("div");
-    panel.id = "controlPanel";
-    panel.className = "control-panel";
+    let panel = document.getElementById("controlPanel");
+    if (!panel) {
+        panel = document.createElement("div");
+        panel.id = "controlPanel";
+        panel.className = "control-panel";
+    }
     panel.innerHTML = htmlContent;
     roomView.appendChild(panel);
 }
@@ -377,7 +380,6 @@ function checkLevel6() {
     showMessage("齒輪完美對齊！"); currentLevel = 7; setTimeout(loadLevel, 800);
 }
 
-// 修正：修正第七關保全覆蓋
 function checkLevel7() {
     let val = document.getElementById("p7").value;
     if (val === gamePasswords.level7) {
@@ -461,9 +463,7 @@ function endGame() {
     document.getElementById("inventoryBar").style.display = "none";
 }
 
-// 🎬 終極安全鎖：確保網頁跟 CSS 衣服全部開好了，才啟動大腦！
 window.onload = function() {
-    // 預設回到選單，不自動啟動
     if(menuView) menuView.style.display = "flex";
     if(gameViewContainer) gameViewContainer.style.display = "none";
 };
