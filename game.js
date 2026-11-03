@@ -1,6 +1,3 @@
-// 🔑 你的最高權限雲端主密鑰，負責連接 jsonbin 抽屜
-const MASTER_KEY = "$2a$10$YArz5d0T90npIHpdYPamd.kZcpGfkvvj1JvQ4nYVCodZPYes3r3wy";
-
 const gamePasswords = {
     level1: Math.floor(1000 + Math.random() * 9000).toString(),
     level3: Math.floor(1000 + Math.random() * 9000).toString(),
@@ -20,73 +17,6 @@ const timerEl = document.getElementById("timer");
 const roomView = document.getElementById("roomView");
 const messageBox = document.getElementById("messageBox");
 const mainDoor = document.getElementById("mainDoor");
-const menuView = document.getElementById("menuView");
-const gameViewContainer = document.getElementById("gameViewContainer");
-const mpPanel = document.getElementById("mpPanel");
-
-// 🏠 全新 3.0 選單按鈕觸發機制
-function startSingleGame() {
-    if (menuView) menuView.style.display = "none";
-    if (gameViewContainer) gameViewContainer.style.display = "flex";
-    startTimer();
-    loadLevel();
-}
-
-function createRoomMenu() {
-    if (mpPanel) mpPanel.style.display = "block";
-    let randomPin = Math.floor(1000 + Math.random() * 9000).toString();
-    
-    // 傳送建房封包到雲端
-    if (typeof fetch === 'function') {
-        fetch('https://jsonbin.io', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-Master-Key': MASTER_KEY,
-                'X-Bin-Name': 'room_' + randomPin
-            },
-            body: JSON.stringify({ pin: randomPin, level: 1, passwords: gamePasswords })
-        })
-        .then(res => res.json())
-        .then(data => {
-            levelState.cloudBinId = data.metadata.id;
-        });
-    }
-    
-    if (mpPanel) {
-        mpPanel.innerHTML = `
-            <h4 style="color:#ffd700; margin:0 0 10px 0;">🏠 雲端房間建立成功</h4>
-            <p style="font-size:14px; margin:5px 0;">請將聯機 PIN 碼給隊友：</p>
-            <div style="font-size:24px; font-weight:bold; color:#00d2d3; margin:10px 0; letter-spacing:2px;">${randomPin}</div>
-            <p style="font-size:11px; color:#a0aec0;">已成功連接 jsonbin 雲端，等待加入...</p>
-            <button onclick="startSingleGame()" style="margin-top:10px; padding:4px 10px; font-size:12px;">直接單人啟動</button>
-        `;
-    }
-}
-
-function joinRoomMenu() {
-    if (mpPanel) {
-        mpPanel.style.display = "block";
-        mpPanel.innerHTML = `
-            <h4 style="color:#ffd700; margin:0 0 10px 0;">🔑 加入聯機房間</h4>
-            <input type="text" id="pinInput" placeholder="輸入 4 位 PIN 碼" style="width:120px; margin-bottom:10px; font-size:12px;"><br>
-            <button onclick="connectRoom()" style="padding:5px 12px; font-size:12px; background-color:#2ed573; color:#fff;">確認聯機</button>
-        `;
-    }
-}
-
-function connectRoom() {
-    let pin = document.getElementById("pinInput").value;
-    if (pin.length === 4) {
-        showMessage("正在透過 Master-Key 搜尋雲端房間...");
-        setTimeout(() => {
-            alert(`⚡ 成功連線！與 jsonbin 抽屜建立即時同步通道 (PIN: ${pin})！`);
-            startSingleGame();
-        }, 800);
-    } else {
-        alert("請輸入正確的 4 位數字 PIN 碼！");
-    }
-}
 
 function startTimer() {
     if (timerInterval) clearInterval(timerInterval);
@@ -242,7 +172,7 @@ function loadLevel() {
 
         let p2 = document.createElement("div");
         p2.className = "interactive-item css-cup"; p2.style.background = "rgba(0,0,255,0.5)"; p2.style.left = "220px"; p2.style.top = "200px";
-        p2.onclick = () => addPotion("藍"); if (roomView.appendChild(p2));
+        p2.onclick = () => addPotion("藍"); if (roomView) roomView.appendChild(p2);
 
         let p3 = document.createElement("div");
         p3.className = "interactive-item css-cup"; p3.style.background = "rgba(0,255,0,0.5)"; p3.style.left = "350px"; p3.style.top = "200px";
@@ -464,11 +394,13 @@ function endGame() {
         leaderboard.push({ name: playerName, time: seconds, score: score, date: new Date().toLocaleDateString() });
     }
 
+    // 將所有人進行大排序
     leaderboard.sort((a, b) => b.score - a.score || a.time - b.time);
-    leaderboard = leaderboard.slice(0, 3);
     localStorage.setItem("wifi_game_leaderboard", JSON.stringify(leaderboard));
 
-    let rankListHTML = leaderboard.map((item, index) => 
+    // 預設主畫面一樣乖乖顯示前 3 名
+    let top3 = leaderboard.slice(0, 3);
+    let rankListHTML = top3.map((item, index) => 
         `<li style="margin: 6px 0; display: flex; justify-content: space-between; border-bottom: 1px dashed rgba(255,255,255,0.2); padding-bottom: 4px;">
             <span style="color: #ffd700; font-weight: bold;">第 ${index + 1} 名：${item.name}</span>
             <span style="color: #ffffff; font-weight: bold;">${item.score} 分 <span style="color: #94a3b8; font-size: 12px;">(${item.time}秒)</span></span>
@@ -484,8 +416,11 @@ function endGame() {
                 <p style="font-size: 13px; color: #cbd5e0; margin: 4px 0;">玩家：<strong>${playerName}</strong> | 本次耗時：<strong>${seconds}</strong> 秒 | 最終得分：<strong style="color:#2ed573;">${score}</strong> 分</p>
                 
                 <div style="background: #1e1e24; padding: 12px 18px; border-radius: 8px; margin: 12px auto; width: 280px; text-align: left; border: 2px solid #ffd700; box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
-                    <h4 style="margin: 0 0 8px 0; color: #ffd700; text-align: center; font-size: 15px;">🏆 英雄排行榜 (Top 3)</h4>
-                    <ul style="padding-left: 0; list-style: none; margin: 0; font-size: 13px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <h4 style="margin: 0; color: #ffd700; font-size: 15px;">📊 排行榜</h4>
+                        <button id="showMoreBtn" onclick="expandLeaderboard()" style="padding: 2px 8px; font-size: 11px; background-color: #4b6584; color: #fff;">看更多</button>
+                    </div>
+                    <ul id="mainRankList" style="padding-left: 0; list-style: none; margin: 0; font-size: 13px;">
                         ${rankListHTML}
                     </ul>
                 </div>
@@ -498,7 +433,25 @@ function endGame() {
     if (barEl) barEl.style.display = "none";
 }
 
+// 👁️ 點擊「看更多」時觸發的「展開一長串」魔法函數
+function expandLeaderboard() {
+    let leaderboard = JSON.parse(localStorage.getItem("wifi_game_leaderboard") || "[]");
+    const listEl = document.getElementById("mainRankList");
+    const btnEl = document.getElementById("showMoreBtn");
+    
+    if (listEl) {
+        // 把所有人（不限3個）通通印出來，變成一長串！
+        listEl.innerHTML = leaderboard.map((item, index) => 
+            `<li style="margin: 6px 0; display: flex; justify-content: space-between; border-bottom: 1px dashed rgba(255,255,255,0.1); padding-bottom: 4px;">
+                <span style="color: ${index < 3 ? '#ffd700' : '#cbd5e0'}; font-weight: bold;">第 ${index + 1} 名：${item.name}</span>
+                <span style="color: #ffffff;">${item.score} 分 <span style="color: #666; font-size: 11px;">(${item.time}s)</span></span>
+            </li>`
+        ).join("");
+    }
+    if (btnEl) btnEl.style.display = "none"; // 點過就藏起來
+}
+
 window.onload = function() {
-    if (menuView) menuView.style.display = "flex";
-    if (gameViewContainer) gameViewContainer.style.display = "none";
+    startTimer();
+    loadLevel();
 };
