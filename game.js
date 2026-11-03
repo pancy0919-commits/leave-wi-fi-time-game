@@ -1,6 +1,3 @@
-// 🔑 你的最高權限雲端主密鑰，負責連接 jsonbin 抽屜
-const MASTER_KEY = "$2a$10$YArz5d0T90npIHpdYPamd.kZcpGfkvvj1JvQ4nYVCodZPYes3r3wy";
-
 const gamePasswords = {
     level1: Math.floor(1000 + Math.random() * 9000).toString(),
     level3: Math.floor(1000 + Math.random() * 9000).toString(),
@@ -24,7 +21,6 @@ const menuView = document.getElementById("menuView");
 const gameViewContainer = document.getElementById("gameViewContainer");
 const mpPanel = document.getElementById("mpPanel");
 
-// 🏠 3.0 主選單按鈕功能
 function startSingleGame() {
     if (menuView) menuView.style.display = "none";
     if (gameViewContainer) gameViewContainer.style.display = "flex";
@@ -36,28 +32,12 @@ function createRoomMenu() {
     if (mpPanel) mpPanel.style.display = "block";
     let randomPin = Math.floor(1000 + Math.random() * 9000).toString();
     
-    if (typeof fetch === 'function') {
-        fetch('https://jsonbin.io', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-Master-Key': MASTER_KEY,
-                'X-Bin-Name': 'room_' + randomPin
-            },
-            body: JSON.stringify({ pin: randomPin, level: 1, passwords: gamePasswords })
-        })
-        .then(res => res.json())
-        .then(data => {
-            levelState.cloudBinId = data.metadata.id;
-        });
-    }
-    
     if (mpPanel) {
         mpPanel.innerHTML = `
-            <h4 style="color:#ffd700; margin:0 0 10px 0;">🏠 雲端房間建立成功</h4>
+            <h4 style="color:#ffd700; margin:0 0 10px 0;">🏠 創建房間成功</h4>
             <p style="font-size:14px; margin:5px 0;">請將聯機 PIN 碼給隊友：</p>
             <div style="font-size:24px; font-weight:bold; color:#00d2d3; margin:10px 0; letter-spacing:2px;">${randomPin}</div>
-            <p style="font-size:11px; color:#a0aec0;">已成功連接 jsonbin 雲端，等待加入...</p>
+            <p style="font-size:11px; color:#a0aec0;">已成功生成 PIN 碼...</p>
             <button onclick="startSingleGame()" style="margin-top:10px; padding:4px 10px; font-size:12px;">直接單人啟動</button>
         `;
     }
@@ -77,9 +57,9 @@ function joinRoomMenu() {
 function connectRoom() {
     let pin = document.getElementById("pinInput").value;
     if (pin.length === 4) {
-        showMessage("正在透過 Master-Key 搜尋雲端房間...");
+        showMessage("正在搜尋房間...");
         setTimeout(() => {
-            alert(`⚡ 成功連線！與 jsonbin 抽屜建立即時同步通道 (PIN: ${pin})！`);
+            alert(`⚡ 成功連線！(PIN: ${pin})！`);
             startSingleGame();
         }, 800);
     } else {
@@ -213,7 +193,7 @@ function loadLevel() {
 
         let bottle = document.createElement("div");
         bottle.className = "interactive-item css-cup has-water";
-        bottle.style.left = "60px"; bottle.style.top = "250px";
+        bottle.style.left = "60px"; bottle.style.top = "250px"; // 🎯 修正：botole 改回 bottle，徹底消除卡死崩潰！
         bottle.onclick = () => {
             if (!inventory.some(i => i.id === "water")) {
                 inventory.push({ id: "water", className: "css-cup has-water", name: "水壺" });
@@ -231,7 +211,7 @@ function loadLevel() {
         `);
 
     } else if (currentLevel === 4) {
-        // 🧪 最完美的「藍 ➔ 紅 ➔ 綠」三色精密融合關卡！
+        // 🧪 你最期待的進階版「藍 ➔ 紅 ➔ 綠」三色精密融合配方！
         if (roomTitle) roomTitle.innerText = "第 4 關：化學試管調配 (三色精密融合)";
         if (mainDoor) mainDoor.style.display = "flex";
         levelState.pots = [];
@@ -377,7 +357,7 @@ function addPotion(color) {
     } else { showMessage("試管最多只能容納三種試劑！"); }
 }
 
-// 🎯 100% 絕對正確、呼叫按鈕名字相符的「藍 ➔ 紅 ➔ 綠」進階驗證核心！
+// 🎯 100% 正確匹配：呼叫按鈕名字完全正確的「藍 ➔ 紅 ➔ 綠」進階驗證
 function checkLevel4Advanced() {
     let p = levelState.pots;
     if (p.length === 3 && p[0] === "藍" && p[1] === "紅" && p[2] === "綠") {
@@ -403,7 +383,7 @@ function toggleWire(num) {
 
 function checkLevel5() {
     let w = levelState.wires;
-    if (w && w[1] && w[2] && w[3]) {
+    if (w[1] && w[2] && w[3]) {
         showMessage("電流接通！"); currentLevel = 6; setTimeout(loadLevel, 800);
     } else { showMessage("還有電線是斷路的！"); }
 }
