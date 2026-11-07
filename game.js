@@ -1,3 +1,4 @@
+// ====== 遊戲基礎密碼與變數設定 ======
 const gamePasswords = {
     level1: Math.floor(1000 + Math.random() * 9000).toString(),
     level3: Math.floor(1000 + Math.random() * 9000).toString(),
@@ -11,7 +12,9 @@ let timerInterval = null;
 let inventory = [];
 let levelState = {};
 let collectedClues = [];
+let leaderboard = []; // 用於儲存雲端排行榜資料
 
+// DOM 元素綁定
 const roomTitle = document.getElementById("roomTitle");
 const timerEl = document.getElementById("timer");
 const roomView = document.getElementById("roomView");
@@ -21,6 +24,12 @@ const menuView = document.getElementById("menuView");
 const gameViewContainer = document.getElementById("gameViewContainer");
 const mpPanel = document.getElementById("mpPanel");
 
+// ====== ☁️ 雲端排行榜設定 (JSONBin.io) ======
+const API_KEY = "$2a$10$YArz5d0T90npIHpdYPamd.kZcpGfkvvj1JvQ4nYVCodZPYes3r3wy"; 
+const BIN_ID = "請替換成你的_BIN_ID"; // 💡 請至 jsonbin.io 建立 Bin 後在此填入 ID
+const API_URL = `https://jsonbin.io{BIN_ID}`;
+
+// 遊戲啟動流程
 function startSingleGame() {
     if (menuView) menuView.style.display = "none";
     if (gameViewContainer) gameViewContainer.style.display = "flex";
@@ -31,7 +40,6 @@ function startSingleGame() {
 function createRoomMenu() {
     if (mpPanel) mpPanel.style.display = "block";
     let randomPin = Math.floor(1000 + Math.random() * 9000).toString();
-    
     if (mpPanel) {
         mpPanel.innerHTML = `
             <h4 style="color:#ffd700; margin:0 0 10px 0;">🏠 創建房間成功</h4>
@@ -67,6 +75,7 @@ function connectRoom() {
     }
 }
 
+// 基礎功能函式
 function startTimer() {
     if (timerInterval) clearInterval(timerInterval);
     timerInterval = setInterval(() => {
@@ -121,6 +130,18 @@ function updateInventory() {
         }
     }
 }
+
+function createControlPanel(htmlContent) {
+    let panel = document.getElementById("controlPanel");
+    if (!panel) {
+        panel = document.createElement("div");
+        panel.id = "controlPanel";
+        panel.className = "control-panel";
+    }
+    panel.innerHTML = htmlContent;
+    if (roomView) roomView.appendChild(panel);
+}
+// ====== 🗺 關卡載入核心邏輯 ======
 function loadLevel() {
     const oldPanel = document.getElementById("controlPanel");
     if (oldPanel) oldPanel.remove();
@@ -193,7 +214,7 @@ function loadLevel() {
 
         let bottle = document.createElement("div");
         bottle.className = "interactive-item css-cup has-water";
-        bottle.style.left = "60px"; bottle.style.top = "250px"; // 🎯 修正：botole 改回 bottle，徹底消除卡死崩潰！
+        bottle.style.left = "60px"; bottle.style.top = "250px"; 
         bottle.onclick = () => {
             if (!inventory.some(i => i.id === "water")) {
                 inventory.push({ id: "water", className: "css-cup has-water", name: "水壺" });
@@ -211,7 +232,6 @@ function loadLevel() {
         `);
 
     } else if (currentLevel === 4) {
-        // 🧪 你最期待的進階版「藍 ➔ 紅 ➔ 綠」三色精密融合配方！
         if (roomTitle) roomTitle.innerText = "第 4 關：化學試管調配 (三色精密融合)";
         if (mainDoor) mainDoor.style.display = "flex";
         levelState.pots = [];
@@ -244,12 +264,12 @@ function loadLevel() {
         wirePanel.style.flexDirection = "column";
         wirePanel.style.gap = "8px";
         wirePanel.innerHTML = `
-            <div style="display:flex; gap:12px;">
-                <div class="wire" id="w1" onclick="toggleWire(1)"></div>
-                <div class="wire" id="w2" onclick="toggleWire(2)"></div>
-                <div class="wire" id="w3" onclick="toggleWire(3)"></div>
+            <div style="display:flex; gap:12px; justify-content:center;">
+                <div class="wire" id="w1" onclick="toggleWire(1)" style="width:30px; height:30px; background:#4b6584; border-radius:50%; cursor:pointer;"></div>
+                <div class="wire" id="w2" onclick="toggleWire(2)" style="width:30px; height:30px; background:#4b6584; border-radius:50%; cursor:pointer;"></div>
+                <div class="wire" id="w3" onclick="toggleWire(3)" style="width:30px; height:30px; background:#4b6584; border-radius:50%; cursor:pointer;"></div>
             </div>
-            <button onclick="checkLevel5()">通電開門</button>
+            <button onclick="checkLevel5()" style="margin-top:5px;">通電開門</button>
         `;
         if (roomView) roomView.appendChild(wirePanel);
 
@@ -313,22 +333,9 @@ function loadLevel() {
                 <button onclick="checkLevel8Code()">送出密碼</button>
             </div>
         `);
-
-    } else {
-        endGame();
     }
 }
-function createControlPanel(htmlContent) {
-    let panel = document.getElementById("controlPanel");
-    if (!panel) {
-        panel = document.createElement("div");
-        panel.id = "controlPanel";
-        panel.className = "control-panel";
-    }
-    panel.innerHTML = htmlContent;
-    if (roomView) roomView.appendChild(panel);
-}
-
+// ====== 🔓 各關卡密碼與通關驗證 ======
 function checkLevel1() {
     let val = document.getElementById("p1").value;
     if (val === gamePasswords.level1) {
@@ -357,7 +364,6 @@ function addPotion(color) {
     } else { showMessage("試管最多只能容納三種試劑！"); }
 }
 
-// 🎯 100% 正確匹配：呼叫按鈕名字完全正確的「藍 ➔ 紅 ➔ 綠」進階驗證
 function checkLevel4Advanced() {
     let p = levelState.pots;
     if (p.length === 3 && p[0] === "藍" && p[1] === "紅" && p[2] === "綠") {
@@ -376,8 +382,8 @@ function toggleWire(num) {
     levelState.wires[num] = !levelState.wires[num];
     let el = document.getElementById(`w${num}`);
     if (el) {
-        if (levelState.wires[num]) el.classList.add("connected");
-        else el.classList.remove("connected");
+        if (levelState.wires[num]) el.style.background = "#2ed573";
+        else el.style.background = "#4b6584";
     }
 }
 
@@ -409,7 +415,7 @@ function checkLevel8Code() {
             const boxEl = document.getElementById("finalBox");
             if (boxEl) {
                 boxEl.innerHTML = `
-                    <button onclick="checkLevel8Key()" style="background-color:#2ed573; color:#fff;">插入鑰匙逃脫！</button>
+                    <button onclick="checkLevel8Key()" style="background-color:#2ed573; color:#fff; padding:6px 12px; border-radius:4px;">插入鑰匙逃脫！</button>
                 `;
             }
             showMessage("密碼正確！請插入鑰匙！");
@@ -422,6 +428,7 @@ function checkLevel8Key() {
     if (keyItem && keyItem.washed) endGame();
 }
 
+// ====== 🏁 遊戲結束結算與雲端排行榜核心同步 ======
 function endGame() {
     clearInterval(timerInterval);
     if (mainDoor) mainDoor.style.display = "none";
@@ -432,63 +439,110 @@ function endGame() {
 
     let playerName = prompt("🎉 成功通關！請輸入你的名字留在排行榜上：") || "無名英雄";
 
-    let leaderboard = JSON.parse(localStorage.getItem("wifi_game_leaderboard") || "[]");
-    let existingRecordIndex = leaderboard.findIndex(item => item.name === playerName);
-
-    if (existingRecordIndex !== -1) {
-        if (score > leaderboard[existingRecordIndex].score || 
-           (score === leaderboard[existingRecordIndex].score && seconds < leaderboard[existingRecordIndex].time)) {
-            leaderboard[existingRecordIndex] = { name: playerName, time: seconds, score: score, date: new Date().toLocaleDateString() };
-            showMessage("🏆 恭喜！刷新了你個人的歷史最高紀錄！");
-        } else {
-            showMessage("👍 通關成功！可惜沒有打破你之前的最高分紀錄。");
+    // 啟動非同步雲端數據同步
+    (async function handleCloudLeaderboard() {
+        showMessage("正在同步雲端排行榜...");
+        try {
+            // 1. 從雲端抓取全體玩家的最新排行
+            const response = await fetch(`${API_URL}/latest`, {
+                method: 'GET',
+                headers: { 'X-Master-Key': API_KEY }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                leaderboard = data.record.leaderboard || [];
+            }
+        } catch (e) {
+            console.error("無法連接雲端，使用本地備份:", e);
+            leaderboard = JSON.parse(localStorage.getItem("wifi_game_leaderboard") || "[]");
         }
-    } else {
-        leaderboard.push({ name: playerName, time: seconds, score: score, date: new Date().toLocaleDateString() });
-    }
 
-    leaderboard.sort((a, b) => b.score - a.score || a.time - b.time);
-    localStorage.setItem("wifi_game_leaderboard", JSON.stringify(leaderboard));
+        // 2. 判斷是否需要刷新該玩家的分數紀錄
+        let existingRecordIndex = leaderboard.findIndex(item => item.name === playerName);
+        if (existingRecordIndex !== -1) {
+            if (score > leaderboard[existingRecordIndex].score || 
+               (score === leaderboard[existingRecordIndex].score && seconds < leaderboard[existingRecordIndex].time)) {
+                leaderboard[existingRecordIndex] = { name: playerName, time: seconds, score: score, date: new Date().toLocaleDateString() };
+                showMessage("🏆 恭喜！刷新了你個人的歷史最高紀錄！");
+            } else {
+                showMessage("👍 通關成功！可惜沒有打破你之前的最高分紀錄。");
+            }
+        } else {
+            leaderboard.push({ name: playerName, time: seconds, score: score, date: new Date().toLocaleDateString() });
+        }
 
-    let top3 = leaderboard.slice(0, 3);
-    let rankListHTML = top3.map((item, index) => 
-        `<li style="margin: 6px 0; display: flex; justify-content: space-between; border-bottom: 1px dashed rgba(255,255,255,0.2); padding-bottom: 4px;">
-            <span style="color: #ffd700; font-weight: bold;">第 ${index + 1} 名：${item.name}</span>
-            <span style="color: #ffffff; font-weight: bold;">${item.score} 分 <span style="color: #94a3b8; font-size: 12px;">(${item.time}秒)</span></span>
-        </li>`
-    ).join("");
+        // 3. 排序規則：分數高到低 ➔ 秒數少到多
+        leaderboard.sort((a, b) => b.score - a.score || a.time - b.time);
 
-    if (roomTitle) roomTitle.innerText = "8關全部完美通關！";
-    if (roomView) {
-        roomView.innerHTML = `
-            <div style="text-align: center; max-height: 420px; overflow-y: auto; width: 100%; padding: 10px; box-sizing: border-box;">
-                <div style="font-size: 50px; margin-bottom: 2px;">${rankEmoji}</div>
-                <h3 style="color: #ffd700; margin: 4px 0; font-size: 18px; font-weight: bold;">${rankTitle}</h3>
-                <p style="font-size: 13px; color: #cbd5e0; margin: 4px 0;">玩家：<strong>${playerName}</strong> | 本次耗時：<strong>${seconds}</strong> 秒 | 最終得分：<strong style="color:#2ed573;">${score}</strong> 分</p>
-                
-                <div style="background: #1e1e24; padding: 12px 18px; border-radius: 8px; margin: 12px auto; width: 280px; text-align: left; border: 2px solid #ffd700; box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                        <h4 style="margin: 0; color: #ffd700; font-size: 15px;">📊 排行榜</h4>
-                        <button id="showMoreBtn" onclick="expandLeaderboard()" style="padding: 2px 8px; font-size: 11px; background-color: #4b6584; color: #fff;">看更多</button>
+        // 4. 將新數據更新回雲端伺服器（並更新本地 LocalStorage 備份）
+        try {
+            localStorage.setItem("wifi_game_leaderboard", JSON.stringify(leaderboard));
+            await fetch(API_URL, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Master-Key': API_KEY
+                },
+                body: JSON.stringify({ leaderboard: leaderboard })
+            });
+        } catch (error) {
+            console.error("同步至雲端失敗:", error);
+        }
+
+        // 5. 渲染結尾畫面的前三名資料
+        let top3 = leaderboard.slice(0, 3);
+        let rankListHTML = top3.map((item, index) => 
+            `<li style="margin: 6px 0; display: flex; justify-content: space-between; border-bottom: 1px dashed rgba(255,255,255,0.2); padding-bottom: 4px;">
+                <span style="color: #ffd700; font-weight: bold;">第 ${index + 1} 名：${item.name}</span>
+                <span style="color: #ffffff; font-weight: bold;">${item.score} 分 <span style="color: #94a3b8; font-size: 12px;">(${item.time}秒)</span></span>
+            </li>`
+        ).join("");
+
+        // 6. 將結尾 UI 動態寫入網頁
+        if (roomTitle) roomTitle.innerText = "8關全部完美通關！";
+        if (roomView) {
+            roomView.innerHTML = `
+                <div style="text-align: center; max-height: 420px; overflow-y: auto; width: 100%; padding: 10px; box-sizing: border-box;">
+                    <div style="font-size: 50px; margin-bottom: 2px;">${rankEmoji}</div>
+                    <h3 style="color: #ffd700; margin: 4px 0; font-size: 18px; font-weight: bold;">${rankTitle}</h3>
+                    <p style="font-size: 13px; color: #cbd5e0; margin: 4px 0;">玩家：<strong>${playerName}</strong> | 本次耗時：<strong>${seconds}</strong> 秒 | 最終得分：<strong style="color:#2ed573;">${score}</strong> 分</p>
+                    
+                    <div style="background: #1e1e24; padding: 12px 18px; border-radius: 8px; margin: 12px auto; width: 280px; text-align: left; border: 2px solid #ffd700; box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <h4 style="margin: 0; color: #ffd700; font-size: 15px;">📊 雲端排行榜</h4>
+                            <button id="showMoreBtn" onclick="expandLeaderboard()" style="padding: 2px 8px; font-size: 11px; background-color: #4b6584; color: #fff; border:none; cursor:pointer; border-radius:3px;">看更多</button>
+                        </div>
+                        <ul id="mainRankList" style="padding-left: 0; list-style: none; margin: 0; font-size: 13px;">
+                            ${rankListHTML}
+                        </ul>
                     </div>
-                    <ul id="mainRankList" style="padding-left: 0; list-style: none; margin: 0; font-size: 13px;">
-                        ${rankListHTML}
-                    </ul>
-                </div>
 
-                <button onclick="location.reload()" style="background-color: #4b6584; color: #fff; padding: 8px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; border: none; margin-top: 5px;">再挑戰一次</button>
-            </div>
-        `;
-    }
-    const barEl = document.getElementById("inventoryBar");
-    if (barEl) barEl.style.display = "none";
+                    <button onclick="location.reload()" style="background-color: #4b6584; color: #fff; padding: 8px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; border: none; margin-top: 5px;">再挑戰一次</button>
+                </div>
+            `;
+        }
+        const barEl = document.getElementById("inventoryBar");
+        if (barEl) barEl.style.display = "none";
+    })();
 }
 
-function expandLeaderboard() {
-    let leaderboard = JSON.parse(localStorage.getItem("wifi_game_leaderboard") || "[]");
+// ====== 📊 點擊「看更多」展開完整名次 ======
+async function expandLeaderboard() {
     const listEl = document.getElementById("mainRankList");
     const btnEl = document.getElementById("showMoreBtn");
     
+    if (listEl) listEl.innerHTML = "<li>正在連線雲端更新排行...</li>";
+    try {
+        const response = await fetch(`${API_URL}/latest`, {
+            method: 'GET',
+            headers: { 'X-Master-Key': API_KEY }
+        });
+        if (response.ok) {
+            const data = await response.json();
+            leaderboard = data.record.leaderboard || [];
+        }
+    } catch (e) { console.error("展開時無法抓取最新雲端數據，使用現有快取。"); }
+
     if (listEl) {
         listEl.innerHTML = leaderboard.map((item, index) => 
             `<li style="margin: 6px 0; display: flex; justify-content: space-between; border-bottom: 1px dashed rgba(255,255,255,0.1); padding-bottom: 4px;">
@@ -500,6 +554,7 @@ function expandLeaderboard() {
     if (btnEl) btnEl.style.display = "none";
 }
 
+// 視窗初始化選單狀態
 window.onload = function() {
     if (menuView) menuView.style.display = "flex";
     if (gameViewContainer) gameViewContainer.style.display = "none";
