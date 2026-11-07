@@ -12,7 +12,12 @@ let timerInterval = null;
 let inventory = [];
 let levelState = {};
 let collectedClues = [];
-let leaderboard = []; // 用於儲存雲端排行榜資料
+let leaderboard = []; 
+
+// 聯機專用核心變數
+let myRoomPIN = null;
+let isMultiplayer = false;
+let lobbyCheckInterval = null;
 
 // DOM 元素綁定
 const roomTitle = document.getElementById("roomTitle");
@@ -23,123 +28,146 @@ const mainDoor = document.getElementById("mainDoor");
 const menuView = document.getElementById("menuView");
 const gameViewContainer = document.getElementById("gameViewContainer");
 const mpPanel = document.getElementById("mpPanel");
+const lobbyView = document.getElementById("lobbyView");
+const lobbyStatus = document.getElementById("lobbyStatus");
+const playerList = document.getElementById("playerList");
+const hostStartBtn = document.getElementById("hostStartBtn");
+const clientWaitText = document.getElementById("clientWaitText");
 
-// ====== ☁️ 雲端排行榜設定 (JSONBin.io) ======
-const API_KEY = "$2a$10$YArz5d0T90npIHpdYPamd.kZcpGfkvvj1JvQ4nYVCodZPYes3r3wy"; 
-const BIN_ID = "請替換成你的_BIN_ID"; // 💡 請至 jsonbin.io 建立 Bin 後在此填入 ID
-const API_URL = `https://jsonbin.io{BIN_ID}`;
+// ====== ☁️ 全自動雲端網址 (免任何金鑰與噁心設定) ======
+const GAME_KEY = "leave-wi-fi-time-game-pancy0919";
+const API_URL = `https://keyvalue.xyz{GAME_KEY}`;
 
-// 遊戲啟動流程
+// 啟動單人遊戲
 function startSingleGame() {
+    isMultiplayer = false;
     if (menuView) menuView.style.display = "none";
+    if (lobbyView) lobbyView.style.display = "none";
     if (gameViewContainer) gameViewContainer.style.display = "flex";
     startTimer();
     loadLevel();
 }
 
-function createRoomMenu() {
+// 🏠 房主：創建「真實」雲端聯機房間
+async function createRoomMenu() {
     if (mpPanel) mpPanel.style.display = "block";
-    let randomPin = Math.floor(1000 + Math.random() * 9000).toString();
-    if (mpPanel) {
-        mpPanel.innerHTML = `
-            <h4 style="color:#ffd700; margin:0 0 10px 0;">🏠 創建房間成功</h4>
-            <p style="font-size:14px; margin:5px 0;">請將聯機 PIN 碼給隊友：</p>
-            <div style="font-size:24px; font-weight:bold; color:#00d2d3; margin:10px 0; letter-spacing:2px;">${randomPin}</div>
-            <p style="font-size:11px; color:#a0aec0;">已成功生成 PIN 碼...</p>
-            <button onclick="startSingleGame()" style="margin-top:10px; padding:4px 10px; font-size:12px;">直接單人啟動</button>
-        `;
+    myRoomPIN = Math.floor(1000 + Math.random() * 9000).toString();
+    
+    try {
+        showMessage("正在雲端建立房間...");
+        // 在公開雲端建立一個以房號為名的欄位，紀錄狀態與房主生成的密碼
+        await fetch(`${API_URL}/room_${myRoomPIN}`, {
+            method: 'PUT',
+            body: JSON.stringify({ status: "waiting", passwords: gamePasswords })
+        });
+
+        if (menuView) menuView.style.display = "none";
+        if (lobbyView) lobbyView.style.display = "flex";
+        
+        if (lobbyStatus) lobbyStatus.innerText = `房間號碼 PIN：${myRoomPIN}`;
+        if (playerList) playerList.innerHTML = `<p style="color:#2ed573;">● 房主 (你) 已就位</p><p style="color:#ff9f43;">⏳ 正在等待隊友加入...</p>`;
+        if (hostStartBtn) hostStartBtn.style.display = "block";
+        if (clientWaitText) clientWaitText.style.display = "none";
+
+        // 房主啟動循環檢查，看看隊友是不是加入了
+        startLobbyPolling(true);
+    } catch (e) {
+        alert("雲端網路連線失敗，請檢查您的 Wi-Fi！");
     }
 }
 
+// 房主正式按下：全員到齊，啟動遊戲！
+async function hostLaunchGame() {
+    if (lobbyCheckInterval) clearInterval(lobbyCheckInterval);
+    try {
+        await fetch(`${API_URL}/room_${myRoomPIN}`, {
+            method: 'PUT',
+            body: JSON.stringify({ status: "start", passwords: gamePasswords })
+        });
+        isMultiplayer = true;
+        startSingleGame();
+    } catch (e) {
+        alert("啟動連線失敗。");
+    }
+}
+
+// 🔑 隊友：輸入房間號碼介面
 function joinRoomMenu() {
     if (mpPanel) {
         mpPanel.style.display = "block";
         mpPanel.innerHTML = `
             <h4 style="color:#ffd700; margin:0 0 10px 0;">🔑 加入聯機房間</h4>
             <input type="text" id="pinInput" placeholder="輸入 4 位 PIN 碼" style="width:120px; margin-bottom:10px; font-size:12px;"><br>
-            <button onclick="connectRoom()" style="padding:5px 12px; font-size:12px; background-color:#2ed573; color:#fff;">確認聯機</button>
+            <button onclick="connectRoom()" style="padding:5px 12px; font-size:12px; background-color:#2ed573; color:#fff; border:none; cursor:pointer;">確認聯機</button>
         `;
     }
 }
 
-function connectRoom() {
+// ⚡ 隊友：連線到真實雲端，驗證有沒有這個房間！
+async function connectRoom() {
     let pin = document.getElementById("pinInput").value;
-    if (pin.length === 4) {
-        showMessage("正在搜尋房間...");
-        setTimeout(() => {
-            alert(`⚡ 成功連線！(PIN: ${pin})！`);
-            startSingleGame();
-        }, 800);
-    } else {
+    if (pin.length !== 4) {
         alert("請輸入正確的 4 位數字 PIN 碼！");
+        return;
     }
-}
 
-// 基礎功能函式
-function startTimer() {
-    if (timerInterval) clearInterval(timerInterval);
-    timerInterval = setInterval(() => {
-        seconds++;
-        if (timerEl) timerEl.innerText = `時間: ${seconds}秒`;
-    }, 1000);
-}
+    showMessage("正在連線雲端尋找房間...");
+    try {
+        const response = await fetch(`${API_URL}/room_${pin}`);
+        if (!response.ok) {
+            alert("❌ 找不到這個房間！隨便亂打是進不去的喔。");
+            return;
+        }
+        
+        const roomData = await response.json();
+        if (roomData && roomData.passwords) {
+            // 💡 核心技術：把隊友的密碼，替換成房主在雲端產生的同步密碼！
+            Object.assign(gamePasswords, roomData.passwords);
+            myRoomPIN = pin;
+            isMultiplayer = true;
+            
+            // 告訴雲端「隊友已經成功進來了」
+            await fetch(`${API_URL}/room_${pin}`, {
+                method: 'PUT',
+                body: JSON.stringify({ status: "joined", passwords: gamePasswords })
+            });
 
-function showMessage(text) {
-    if (messageBox) {
-        messageBox.innerText = text;
-        messageBox.style.opacity = 1;
-        setTimeout(() => { messageBox.style.opacity = 0; }, 2800);
-    }
-}
+            if (menuView) menuView.style.display = "none";
+            if (lobbyView) lobbyView.style.display = "flex";
+            if (lobbyStatus) lobbyStatus.innerText = `房間號碼 PIN：${myRoomPIN}`;
+            if (playerList) playerList.innerHTML = `<p style="color:#2ed573;">● 房主已在房間內</p><p style="color:#2ed573;">● 隊友 (你) 已成功連線</p>`;
+            if (hostStartBtn) hostStartBtn.style.display = "none";
+            if (clientWaitText) clientWaitText.style.display = "block";
 
-function addClue(clueText) {
-    if (!collectedClues.includes(clueText)) {
-        collectedClues.push(clueText);
-        updateNotebookUI();
-    }
-}
-
-function updateNotebookUI() {
-    const listEl = document.getElementById("notebookList");
-    if (listEl) {
-        if (collectedClues.length === 0) {
-            listEl.innerHTML = "<li>尚未收集到任何線索...</li>";
+            // 隊友啟動循環檢查，等待房主按下「啟動遊戲」
+            startLobbyPolling(false);
         } else {
-            listEl.innerHTML = collectedClues.map(c => `<li style="color: #6ee7b7; margin-bottom: 4px;">${c}</li>`).join("");
+            alert("❌ 該房間資料不完整或已失效。");
         }
+    } catch (error) {
+        alert("❌ 連線伺服器失敗，請確認網路狀態。");
     }
 }
 
-function toggleNotebook(show) {
-    const modalEl = document.getElementById("notebookModal");
-    if (modalEl) modalEl.style.display = show ? "flex" : "none";
-}
-
-function updateInventory() {
-    for (let i = 0; i < 2; i++) {
-        const slot = document.getElementById(`slot${i}`);
-        if (slot) {
-            slot.innerHTML = "";
-            slot.classList.remove("has-item");
-            if (inventory[i]) {
-                let itemVisual = document.createElement("div");
-                itemVisual.className = inventory[i].className;
-                slot.appendChild(itemVisual);
-                slot.classList.add("has-item");
+// 🔄 等候室即時狀態同步同步 (每秒看一次雲端)
+function startLobbyPolling(isHost) {
+    if (lobbyCheckInterval) clearInterval(lobbyCheckInterval);
+    lobbyCheckInterval = setInterval(async () => {
+        try {
+            const response = await fetch(`${API_URL}/room_${myRoomPIN}`);
+            if (response.ok) {
+                const roomData = await response.json();
+                if (isHost && roomData.status === "joined") {
+                    if (playerList) playerList.innerHTML = `<p style="color:#2ed573;">● 房主 (你) 已就位</p><p style="color:#2ed573;">● 🎉 隊友已成功聯機進來了！</p>`;
+                }
+                if (!isHost && roomData.status === "start") {
+                    // 房主啟動了！隊友這邊也立刻同步啟動
+                    clearInterval(lobbyCheckInterval);
+                    startSingleGame();
+                }
             }
-        }
-    }
-}
-
-function createControlPanel(htmlContent) {
-    let panel = document.getElementById("controlPanel");
-    if (!panel) {
-        panel = document.createElement("div");
-        panel.id = "controlPanel";
-        panel.className = "control-panel";
-    }
-    panel.innerHTML = htmlContent;
-    if (roomView) roomView.appendChild(panel);
+        } catch (e) { console.error(e); }
+    }, 1200);
 }
 // ====== 🗺 關卡載入核心邏輯 ======
 function loadLevel() {
@@ -265,9 +293,9 @@ function loadLevel() {
         wirePanel.style.gap = "8px";
         wirePanel.innerHTML = `
             <div style="display:flex; gap:12px; justify-content:center;">
-                <div class="wire" id="w1" onclick="toggleWire(1)" style="width:30px; height:30px; background:#4b6584; border-radius:50%; cursor:pointer;"></div>
-                <div class="wire" id="w2" onclick="toggleWire(2)" style="width:30px; height:30px; background:#4b6584; border-radius:50%; cursor:pointer;"></div>
-                <div class="wire" id="w3" onclick="toggleWire(3)" style="width:30px; height:30px; background:#4b6584; border-radius:50%; cursor:pointer;"></div>
+                <div class="wire" id="w1" onclick="toggleWire(1)"></div>
+                <div class="wire" id="w2" onclick="toggleWire(2)"></div>
+                <div class="wire" id="w3" onclick="toggleWire(3)"></div>
             </div>
             <button onclick="checkLevel5()" style="margin-top:5px;">通電開門</button>
         `;
@@ -364,6 +392,7 @@ function addPotion(color) {
     } else { showMessage("試管最多只能容納三種試劑！"); }
 }
 
+// 🎯 修正版：個別檢查陣列內第 0, 1, 2 個元素是否完全符合「藍->紅->綠」
 function checkLevel4Advanced() {
     let p = levelState.pots;
     if (p.length === 3 && p[0] === "藍" && p[1] === "紅" && p[2] === "綠") {
@@ -382,8 +411,8 @@ function toggleWire(num) {
     levelState.wires[num] = !levelState.wires[num];
     let el = document.getElementById(`w${num}`);
     if (el) {
-        if (levelState.wires[num]) el.style.background = "#2ed573";
-        else el.style.background = "#4b6584";
+        if (levelState.wires[num]) el.classList.add("connected");
+        else el.classList.remove("connected");
     }
 }
 
@@ -428,7 +457,7 @@ function checkLevel8Key() {
     if (keyItem && keyItem.washed) endGame();
 }
 
-// ====== 🏁 遊戲結束結算與雲端排行榜核心同步 ======
+// ====== 🏁 遊戲結束：自動同步至免費公開雲端排行榜 ======
 function endGame() {
     clearInterval(timerInterval);
     if (mainDoor) mainDoor.style.display = "none";
@@ -439,21 +468,26 @@ function endGame() {
 
     let playerName = prompt("🎉 成功通關！請輸入你的名字留在排行榜上：") || "無名英雄";
 
-    // 啟動非同步雲端數據同步
+    // 啟動全自動非同步雲端排行榜同步
     (async function handleCloudLeaderboard() {
         showMessage("正在同步雲端排行榜...");
+        
+        // 如果是聯機房間，通關後記得把房間狀態清空
+        if (isMultiplayer && myRoomPIN) {
+            try {
+                await fetch(`${API_URL}/room_${myRoomPIN}`, { method: 'DELETE' });
+            } catch(e) {}
+        }
+
         try {
-            // 1. 從雲端抓取全體玩家的最新排行
-            const response = await fetch(`${API_URL}/latest`, {
-                method: 'GET',
-                headers: { 'X-Master-Key': API_KEY }
-            });
+            // 1. 從免設定的 KeyValue API 抓取全體最新的排行榜
+            const response = await fetch(`${API_URL}/global_leaderboard`);
             if (response.ok) {
-                const data = await response.json();
-                leaderboard = data.record.leaderboard || [];
+                const textData = await response.text();
+                leaderboard = textData ? JSON.parse(textData) : [];
             }
         } catch (e) {
-            console.error("無法連接雲端，使用本地備份:", e);
+            console.error("無法連接雲端排行榜，使用本地備份:", e);
             leaderboard = JSON.parse(localStorage.getItem("wifi_game_leaderboard") || "[]");
         }
 
@@ -474,16 +508,12 @@ function endGame() {
         // 3. 排序規則：分數高到低 ➔ 秒數少到多
         leaderboard.sort((a, b) => b.score - a.score || a.time - b.time);
 
-        // 4. 將新數據更新回雲端伺服器（並更新本地 LocalStorage 備份）
+        // 4. 將新數據直接 PUT 更新到雲端儲存庫
         try {
             localStorage.setItem("wifi_game_leaderboard", JSON.stringify(leaderboard));
-            await fetch(API_URL, {
+            await fetch(`${API_URL}/global_leaderboard`, {
                 method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-Master-Key': API_KEY
-                },
-                body: JSON.stringify({ leaderboard: leaderboard })
+                body: JSON.stringify(leaderboard)
             });
         } catch (error) {
             console.error("同步至雲端失敗:", error);
@@ -498,7 +528,7 @@ function endGame() {
             </li>`
         ).join("");
 
-        // 6. 將結尾 UI 動態寫入網頁
+        // 6. 將結尾 UI 寫入網頁中
         if (roomTitle) roomTitle.innerText = "8關全部完美通關！";
         if (roomView) {
             roomView.innerHTML = `
@@ -509,7 +539,7 @@ function endGame() {
                     
                     <div style="background: #1e1e24; padding: 12px 18px; border-radius: 8px; margin: 12px auto; width: 280px; text-align: left; border: 2px solid #ffd700; box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                            <h4 style="margin: 0; color: #ffd700; font-size: 15px;">📊 雲端排行榜</h4>
+                            <h4 style="margin: 0; color: #ffd700; font-size: 15px;">📊 雲端全球排行榜</h4>
                             <button id="showMoreBtn" onclick="expandLeaderboard()" style="padding: 2px 8px; font-size: 11px; background-color: #4b6584; color: #fff; border:none; cursor:pointer; border-radius:3px;">看更多</button>
                         </div>
                         <ul id="mainRankList" style="padding-left: 0; list-style: none; margin: 0; font-size: 13px;">
@@ -526,20 +556,17 @@ function endGame() {
     })();
 }
 
-// ====== 📊 點擊「看更多」展開完整名次 ======
+// ====== 📊 點擊「看更多」直接撈出雲端完整全體排行 ======
 async function expandLeaderboard() {
     const listEl = document.getElementById("mainRankList");
     const btnEl = document.getElementById("showMoreBtn");
     
     if (listEl) listEl.innerHTML = "<li>正在連線雲端更新排行...</li>";
     try {
-        const response = await fetch(`${API_URL}/latest`, {
-            method: 'GET',
-            headers: { 'X-Master-Key': API_KEY }
-        });
+        const response = await fetch(`${API_URL}/global_leaderboard`);
         if (response.ok) {
-            const data = await response.json();
-            leaderboard = data.record.leaderboard || [];
+            const textData = await response.json();
+            leaderboard = textData || [];
         }
     } catch (e) { console.error("展開時無法抓取最新雲端數據，使用現有快取。"); }
 
@@ -558,4 +585,5 @@ async function expandLeaderboard() {
 window.onload = function() {
     if (menuView) menuView.style.display = "flex";
     if (gameViewContainer) gameViewContainer.style.display = "none";
+    if (lobbyView) lobbyView.style.display = "none";
 };
