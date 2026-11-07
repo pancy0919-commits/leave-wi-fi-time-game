@@ -54,7 +54,7 @@ body {
 }
 .slot { width: 40px; height: 40px; background-color: #2a2d34; border: 2px dashed #4b6584; border-radius: 6px; display: flex; align-items: center; justify-content: center; }
 .slot.has-item { border-style: solid; border-color: #ffd700; background-color: #3d414a; }
-.interactive-item { position: absolute; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.interactive-item { position: absolute; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: transform 0.2s; }
 .interactive-item:hover { transform: scale(1.15); }
 .css-paper { width: 24px; height: 32px; background: #ffffff; border: 1px solid #ccc; border-radius: 2px; }
 .css-key { width: 30px; height: 15px; background: #ffd700; border-radius: 3px; }
@@ -70,10 +70,31 @@ body {
 .control-panel { margin-top: 10px; display: flex; gap: 8px; justify-content: center; }
 input, button { padding: 6px 12px; font-size: 13px; border-radius: 4px; border: none; }
 input { background-color: #1e1e24; color: #fff; border: 1px solid #4b6584; text-align: center; }
-button { background-color: #4b6584; color: #fff; font-weight: bold; cursor: pointer; }
+button { background-color: #4b6584; color: #fff; font-weight: bold; cursor: pointer; transition: background 0.2s; }
 button:hover { background-color: #3867d6; }
-.wire { width: 70px; height: 10px; background-color: #555; border-radius: 5px; cursor: pointer; }
-.wire.connected { background-color: #2ed573; box-shadow: 0 0 8px #2ed573; }
+
+/* 🎯 修正與新增：第五關真實電線樣式 */
+.wire { 
+    width: 30px; height: 30px; 
+    background-color: #4b6584; 
+    border-radius: 50%; 
+    cursor: pointer; 
+    transition: all 0.3s;
+    border: 2px solid #fff;
+}
+.wire.connected { 
+    background-color: #2ed573 !important; 
+    box-shadow: 0 0 12px #2ed573; 
+    border-color: #2ed573;
+}
+
+/* 📥 新增：多人模式等候室動畫 */
+@keyframes pulse {
+    0% { opacity: 0.6; }
+    50% { opacity: 1; }
+    100% { opacity: 0.6; }
+}
+
 .modal {
     display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
     background: rgba(0,0,0,0.7); justify-content: center; align-items: center; z-index: 100;
