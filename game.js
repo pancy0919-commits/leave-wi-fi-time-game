@@ -51,11 +51,10 @@ const playerList = document.getElementById("playerList");
 const hostStartBtn = document.getElementById("hostStartBtn");
 const clientWaitText = document.getElementById("clientWaitText");
 
-// 免金鑰免費公開雲端
+// 全自動免設定公開雲端 API
 const GAME_KEY = "leave-wi-fi-time-game-pancy0919";
 const API_URL = `https://keyvalue.xyz{GAME_KEY}`;
 
-// 啟動單人遊戲
 function startSingleGame() {
     isMultiplayer = false;
     if (menuView) menuView.style.display = "none";
@@ -65,7 +64,6 @@ function startSingleGame() {
     loadLevel();
 }
 
-// 🏠 房主建立房間
 async function createRoomMenu() {
     if (mpPanel) mpPanel.style.display = "block";
     myRoomPIN = Math.floor(1000 + Math.random() * 9000).toString();
@@ -101,11 +99,11 @@ function joinRoomMenu() {
     }
 }
 
-// ⚡ 真正連線且有防呆＋防快取的加入房間函式（杜絕歪歪與亂碼碼）
+// ⚡ 終極防呆＋防快取連線函式（完美攔截歪歪與幽靈房間）
 async function realCloudConnectRoom() {
     let pin = document.getElementById("pinInput").value.trim();
     if (!/^\d{4}$/.test(pin)) {
-        alert("❌ 請輸入正確的 4 位「純數字」PIN 碼！輸入其他亂碼（如歪歪）是進不去的。");
+        alert("❌ 請輸入正確的 4 位「純數字」PIN 碼！歪歪或其他非數字亂碼是進不來的喔。");
         return;
     }
     showMessage("正在連線雲端尋找房間...");
@@ -124,6 +122,8 @@ async function realCloudConnectRoom() {
         if (lobbyView) lobbyView.style.display = "flex";
         if (lobbyStatus) lobbyStatus.innerText = `房間號碼 PIN：${myRoomPIN}`;
         if (playerList) playerList.innerHTML = `<p style="color:#2ed573;">● 房主已在房間內</p><p style="color:#2ed573;">● 隊友 (你) 已成功連線</p>`;
+        if (hostStartBtn) hostStartBtn.style.display = "none";
+        if (clientWaitText) clientWaitText.style.display = "block";
         startLobbyPolling(false);
     } catch (error) { alert("❌ 連線伺服器失敗。"); }
 }
@@ -146,7 +146,7 @@ function startLobbyPolling(isHost) {
         } catch (e) {}
     }, 1200);
 }
-// ====== 基礎計時、提示與道具欄控制輔助函式 ======
+// ====== 基礎工具控制函式 ======
 function startTimer() { if (timerInterval) clearInterval(timerInterval); timerInterval = setInterval(() => { seconds++; if (timerEl) timerEl.innerText = `時間: ${seconds}秒`; }, 1000); }
 function showMessage(text) { if (messageBox) { messageBox.innerText = text; messageBox.style.opacity = 1; setTimeout(() => { messageBox.style.opacity = 0; }, 2800); } }
 function addClue(clueText) { if (!collectedClues.includes(clueText)) { collectedClues.push(clueText); updateNotebookUI(); } }
@@ -172,18 +172,20 @@ function createControlPanel(htmlContent) {
     panel.innerHTML = htmlContent; if (roomView) roomView.appendChild(panel);
 }
 
-// ====== 🗺 第 1 關到第 8 關核心渲染邏輯 ======
+// ====== 🗺 第 1 關到第 8 關核心渲染與還原控制 ======
 function loadLevel() {
     const oldPanel = document.getElementById("controlPanel"); if (oldPanel) oldPanel.remove();
     const oldItems = document.querySelectorAll(".interactive-item"); oldItems.forEach(el => el.remove());
-    document.getElementById("secretRoom").style.display = "none"; // 重置隱藏黑客房狀態
+    document.getElementById("secretRoom").style.display = "none";
+    if (timerEl) timerEl.style.display = "inline";     // 還原普通計時器
+    if (roomTitle) roomTitle.style.display = "inline"; // 還原普通關卡標題
 
     if (currentLevel === 1) {
         if (roomTitle) roomTitle.innerText = "第 1 關：尋找密碼紙條";
         let note = document.createElement("div"); note.className = "interactive-item css-paper"; note.style.left = "70px"; note.style.top = "150px";
-        note.onclick = () => { showMessage(`紙條寫著：普通密碼 ${gamePasswords.level1}。輸入暗號可挑戰地獄解密鏈。`); addClue(`第 1 關普通密碼：${gamePasswords.level1}`); };
+        note.onclick = () => { showMessage(`紙條：普通密碼 ${gamePasswords.level1}。輸入地獄暗號可解密跨關。`); addClue(`第 1 關普通密碼：${gamePasswords.level1}`); };
         if (roomView) roomView.appendChild(note);
-        createControlPanel(`<input type="text" id="p1" placeholder="4位密碼或地獄暗號" style="width:140px;"><button onclick="checkLevel1()">確認</button>`);
+        createControlPanel(`<input type="text" id="p1" placeholder="4位密碼或暗號" style="width:140px;"><button onclick="checkLevel1()">確認</button>`);
     } else if (currentLevel === 2) {
         if (roomTitle) roomTitle.innerText = "第 2 關：取得鑰匙";
         let key = document.createElement("div"); key.className = "interactive-item css-key"; key.style.right = "60px"; key.style.top = "240px";
@@ -233,13 +235,17 @@ function loadLevel() {
         createControlPanel(`<div id="finalBox"><input type="text" id="p8" placeholder="輸入綜合密碼" style="width:140px;"><button onclick="checkLevel8Code()">送出密碼</button></div>`);
     }
 }
-// ====== 🔓 各關卡密碼與通關驗證 ======
+// ====== 🔓 各關卡判定與地獄 5 層加密鏈模組 ======
 function checkLevel1() {
     let val = document.getElementById("p1").value.trim().toLowerCase();
     
-    // 💥 觸發五層地獄加密密室（輸入「hell」或是「secret」開啟）
+    // 💥 觸發地獄級彩蛋房（隱藏普通 UI，絕不重疊）
     if (val === "hell" || val === "secret") {
         showMessage("⚠️ 地獄級加密通訊已攔截！");
+        if (timerEl) timerEl.style.display = "none";
+        if (roomTitle) roomTitle.style.display = "none";
+        const oldPanel = document.getElementById("controlPanel"); if (oldPanel) oldPanel.remove();
+        
         document.getElementById("secretRoom").style.display = "flex";
         document.getElementById("secretMorseDisplay").innerText = chainL5_Morse;
         return;
@@ -249,18 +255,16 @@ function checkLevel1() {
     else { showMessage("密碼錯誤！輸入「hell」挑戰五層地獄級加密鏈？"); }
 }
 
-// 💀 黑客魔王關解鎖判定與逐步提示
 function checkSecretRoomCode() {
     let input = document.getElementById("secretInput").value.trim().toLowerCase();
     const terminal = document.getElementById("hintTerminalOutput");
 
-    // 觀眾推理指令系統
     if (input === "hint1") { terminal.innerText = `[層1-二進位] 全長度共: ${chainL2_Binary.length} 碼`; return; }
     if (input === "hint2") { terminal.innerText = `[層2-十六進位串] 轉碼結果: ${chainL3_Hex}`; return; }
-    if (input === "hint3") { terminal.innerText = `[層3-凱薩密碼移位] 答案長度與層2相同，已完全打亂。`; return; }
-    if (input === "hint4") { terminal.innerText = `核心解鎖明文：就是【層3（凱薩密碼加密後）的字串】！`; return; }
+    if (input === "hint3") { terminal.innerText = `[層3-凱薩密碼移位] 已完全打亂。`; return; }
+    if (input === "hint4") { terminal.innerText = `核心解鎖明文：就是【層3的結果字串】！`; return; }
 
-    // 驗證答案是否符合第四層結果
+    // 成功破解，跳關直達第 8 關，並還原普通關卡 UI
     if (input === chainL4_Caesar) {
         alert("🎉 太神啦！地獄五層加密鏈完全破解！直接跳級直達終局第 8 關！");
         currentLevel = 8;
@@ -290,7 +294,7 @@ function checkLevel7() { let val = document.getElementById("p7").value; if (val 
 function checkLevel8Code() { let val = document.getElementById("p8").value; let keyItem = inventory.find(i => i.id === "key"); if (val === gamePasswords.level8) { if (keyItem && keyItem.washed) { levelState.finalPhase = "insertKey"; document.getElementById("finalBox").innerHTML = `<button onclick="checkLevel8Key()" style="background-color:#2ed573; color:#fff;">插入鑰匙逃脫！</button>`; showMessage("密碼正確！請插鑰匙。"); } else { showMessage("鑰匙還沒用水清洗過！"); } } else { showMessage("綜合密碼錯誤！"); } }
 function checkLevel8Key() { let keyItem = inventory.find(i => i.id === "key"); if (keyItem && keyItem.washed) endGame(); }
 
-// ====== 🏁 遊戲結束與全自動免設定雲端排行榜引擎 ======
+// ====== 🏁 全自動免設定雲端排行榜引擎 ======
 function endGame() {
     clearInterval(timerInterval);
     if (mainDoor) mainDoor.style.display = "none";
@@ -353,7 +357,6 @@ async function expandLeaderboard() {
     if (btnEl) btnEl.style.display = "none";
 }
 
-// 視窗初始化狀態
 window.onload = function() {
     if (menuView) menuView.style.display = "flex";
     if (gameViewContainer) gameViewContainer.style.display = "none";
