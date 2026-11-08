@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Leave Wi-Fi Time Game - 地獄加密鏈版</title>
+    <title>Leave Wi-Fi Time Game - 終極彩蛋聯機版</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -12,7 +12,7 @@
         <!-- 🚪 主選單介面 -->
         <div class="menu-view" id="menuView">
             <h1 style="color: #00d2d3; margin-bottom: 5px; font-size: 24px; letter-spacing: 1px;">Leave Wi-Fi Time</h1>
-            <p style="font-size: 12px; color: #a0aec0; margin-bottom: 25px;">Version 7.0 - 五層地獄加密魔王版</p>
+            <p style="font-size: 12px; color: #a0aec0; margin-bottom: 25px;">Version 7.5 - 五層地獄加密魔王版</p>
             
             <div class="menu-buttons">
                 <button class="menu-btn" onclick="startSingleGame()">👤 單人模式挑戰</button>
@@ -20,6 +20,7 @@
                 <button class="menu-btn" onclick="joinRoomMenu()">🔑 加入他人房間</button>
             </div>
 
+            <!-- 聯機互動面板 -->
             <div id="mpPanel" class="mp-panel" style="display: none; margin-top: 15px; padding: 12px; background: rgba(255,255,255,0.05); border-radius: 6px; width: 80%; box-sizing: border-box;"></div>
         </div>
 
@@ -45,7 +46,7 @@
             <div class="room-view" id="roomView">
                 <div class="door" id="mainDoor">門</div>
                 
-                <!-- 👁️ 地獄級密碼秘密房間 -->
+                <!-- 👁️ 地獄級密碼秘密房間（一開始隱藏） -->
                 <div id="secretRoom" style="display: none; position: absolute; top:0; left:0; width:100%; height:100%; background:#070c0e; z-index: 5; flex-direction: column; align-items: center; justify-content: center; padding: 15px; box-sizing: border-box; border-radius: 12px;">
                     <h3 style="color:#ff3333; font-family: monospace; font-size:14px; margin:0 0 5px 0; text-shadow: 0 0 5px #ff3333; animation: pulse 1s infinite;">⚠️ SYSTEM OVERFLOW - 五層地獄加密鏈已啟動</h3>
                     
