@@ -6,23 +6,26 @@ const gamePasswords = {
 };
 gamePasswords.level8 = gamePasswords.level1 + gamePasswords.level3;
 
-// 🔒 建立第 1 關密碼的地獄 5 層加密鏈字典
+// 🎯【16 進位觸發鑰匙】：自動把隨機產生的第 1 關密碼翻譯成 16 進位格式
+const level1Hex = parseInt(gamePasswords.level1).toString(16).toLowerCase();
+
+// 🔒 建立地獄 5 層加密鏈字典 (只有在進到秘密小黑屋時才會展示出來)
 const morseDictionary = {
     'a': '.-', 'b': '-...', 'c': '-.-.', 'd': '-..', 'e': '.', 'f': '..-.', 'g': '--.', 'h': '....', 'i': '..', 'j': '.---', 'k': '-.-', 'l': '.-..', 'm': '--', 'n': '-.', 'o': '---', 'p': '.--.', 'q': '--.-', 'r': '.-.', 's': '...', 't': '-', 'u': '..-', 'v': '...-', 'w': '.--', 'x': '-..-', 'y': '-.--', 'z': '--..',
     '0': '-----', '1': '.----', '2': '..---', '3': '...--', '4': '....-', '5': '.....', '6': '-....', '7': '--...', '8': '---..', '9': '----.'
 };
 
-// 🔒 執行地獄級五層加密鏈計算
+// 🔒 背景自動執行地獄級五層加密鏈連續翻譯
 const chainL1_Original = gamePasswords.level1;                                       // 1. 十進位
 const chainL2_Binary = parseInt(chainL1_Original).toString(2);                        // 2. ➔ 變二進位
-const chainL3_Hex = BigInt("0b" + chainL2_Binary).toString(16).toLowerCase();         // 3. ➔ 變十六進位串
+const chainL3_Hex = BigInt("0b" + chainL2_Binary).toString(16).toLowerCase();         // 3. ➔ 變十六進位字串（也就是唯一的隱藏觸發暗號鑰匙）
 const chainL4_Caesar = chainL3_Hex.split('').map(char => {                            // 4. ➔ 變凱薩密碼 (位移3)
     let code = char.charCodeAt(0);
     if (code >= 48 && code <= 57) return String.fromCharCode(((code - 48 + 3) % 10) + 48);
     if (code >= 97 && code <= 122) return String.fromCharCode(((code - 97 + 3) % 26) + 97);
     return char;
 }).join('');
-const chainL5_Morse = chainL4_Caesar.split('').map(c => morseDictionary[c] || '').join(' '); // 5. ➔ 翻成地獄極長摩斯密碼
+const chainL5_Morse = chainL4_Caesar.split('').map(c => morseDictionary[c] || '').join(' '); // 5. ➔ 翻成地獄摩斯密碼
 
 let currentLevel = 1;
 let seconds = 0;
@@ -51,9 +54,10 @@ const playerList = document.getElementById("playerList");
 const hostStartBtn = document.getElementById("hostStartBtn");
 const clientWaitText = document.getElementById("clientWaitText");
 
-// 全自動免設定公開雲端 API 節點
-const GAME_KEY = "leave-wi-fi-time-game-pancy0919";
-const API_URL = `https://keyvalue.xyz{GAME_KEY}`;
+// 🎯【jsonbin.io 雲端設定】
+const API_KEY = "$2a$10$YArz5d0T90npIHpdYPamd.kZcpGfkvvj1JvQ4nYVCodZPYes3r3wy"; // 你的 Master-Key
+const BIN_ID = "672db9ecacd347a77bca142d"; // 你的常駐資料箱 ID
+const API_URL = `https://jsonbin.io{BIN_ID}`;
 
 function startSingleGame() {
     isMultiplayer = false;
@@ -68,23 +72,34 @@ async function createRoomMenu() {
     if (mpPanel) mpPanel.style.display = "block";
     myRoomPIN = Math.floor(1000 + Math.random() * 9000).toString();
     try {
-        showMessage("正在雲端建立房間...");
-        await fetch(`${API_URL}/room_${myRoomPIN}`, { method: 'PUT', body: JSON.stringify({ status: "waiting", passwords: gamePasswords }) });
+        showMessage("正在雲端同步聯機代碼...");
+        const getRes = await fetch(`${API_URL}/latest`, { method: 'GET', headers: { 'X-Master-Key': API_KEY } });
+        let cloudData = { rooms: {}, leaderboard: [] };
+        if (getRes.ok) { const json = await getRes.json(); cloudData = json.record || cloudData; }
+        if (!cloudData.rooms) cloudData.rooms = {};
+        cloudData.rooms[`room_${myRoomPIN}`] = { status: "waiting", passwords: gamePasswords };
+        await fetch(API_URL, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY }, body: JSON.stringify(cloudData) });
         if (menuView) menuView.style.display = "none";
         if (lobbyView) lobbyView.style.display = "flex";
         if (lobbyStatus) lobbyStatus.innerText = `房間號碼 PIN：${myRoomPIN}`;
         if (playerList) playerList.innerHTML = `<p style="color:#2ed573;">● 房主 (你) 已就位</p><p style="color:#ff9f43;">⏳ 正在等待隊友加入...</p>`;
         if (hostStartBtn) hostStartBtn.style.display = "block";
         startLobbyPolling(true);
-    } catch (e) { alert("雲端網路連線失敗！"); }
+    } catch (e) { alert("雲端網路連線失敗！請檢查 Master-Key 與 BIN_ID。"); }
 }
 
 async function hostLaunchGame() {
     if (lobbyCheckInterval) clearInterval(lobbyCheckInterval);
     try {
-        await fetch(`${API_URL}/room_${myRoomPIN}`, { method: 'PUT', body: JSON.stringify({ status: "start", passwords: gamePasswords }) });
-        isMultiplayer = true;
-        startSingleGame();
+        const getRes = await fetch(`${API_URL}/latest`, { method: 'GET', headers: { 'X-Master-Key': API_KEY } });
+        if (getRes.ok) {
+            const json = await getRes.json(); let cloudData = json.record;
+            if (cloudData.rooms && cloudData.rooms[`room_${myRoomPIN}`]) {
+                cloudData.rooms[`room_${myRoomPIN}`].status = "start";
+                await fetch(API_URL, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY }, body: JSON.stringify(cloudData) });
+            }
+        }
+        isMultiplayer = true; startSingleGame();
     } catch (e) { alert("啟動連線失敗。"); }
 }
 
@@ -101,24 +116,18 @@ function joinRoomMenu() {
 
 async function realCloudConnectRoom() {
     let pin = document.getElementById("pinInput").value.trim();
-    if (!/^\d{4}$/.test(pin)) {
-        alert("❌ 請輸入正確的 4 位「純數字」PIN 碼！輸入其他亂碼（如歪歪）是進不去的。");
-        return;
-    }
+    if (!/^\d{4}$/.test(pin)) { alert("❌ 請輸入正確的 4 位「純數字」PIN 碼！輸入其他亂碼是進不去的。"); return; }
     showMessage("正在連線雲端尋找房間...");
     try {
-        const response = await fetch(`${API_URL}/room_${pin}?t=${Date.now()}`);
-        const roomData = await response.json();
-        if (!roomData || !roomData.passwords || roomData.status !== "waiting") {
-            alert("❌ 找不到這個聯機房間！號碼不存在或遊戲已開始。");
-            return;
-        }
-        Object.assign(gamePasswords, roomData.passwords);
-        myRoomPIN = pin;
-        isMultiplayer = true;
-        await fetch(`${API_URL}/room_${pin}`, { method: 'PUT', body: JSON.stringify({ status: "joined", passwords: gamePasswords }) });
-        if (menuView) menuView.style.display = "none";
-        if (lobbyView) lobbyView.style.display = "flex";
+        const response = await fetch(`${API_URL}/latest?t=${Date.now()}`, { method: 'GET', headers: { 'X-Master-Key': API_KEY } });
+        const json = await response.json(); let cloudData = json.record;
+        let roomData = cloudData && cloudData.rooms ? cloudData.rooms[`room_${pin}`] : null;
+        if (!roomData || !roomData.passwords || roomData.status !== "waiting") { alert("❌ 找不到這個聯機房間！號碼不存在或遊戲已開始。"); return; }
+        Object.assign(gamePasswords, roomData.passwords); myRoomPIN = pin; isMultiplayer = true;
+        cloudData.rooms[`room_${pin}`].status = "joined";
+        await fetch(API_URL, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY }, body: JSON.stringify(cloudData) });
+        if (menuView) { menuView.style.display = "none"; }
+        if (lobbyView) { lobbyView.style.display = "flex"; }
         if (lobbyStatus) lobbyStatus.innerText = `房間號碼 PIN：${myRoomPIN}`;
         if (playerList) playerList.innerHTML = `<p style="color:#2ed573;">● 房主已在房間內</p><p style="color:#2ed573;">● 隊友 (你) 已成功連線</p>`;
         startLobbyPolling(false);
@@ -129,25 +138,21 @@ function startLobbyPolling(isHost) {
     if (lobbyCheckInterval) clearInterval(lobbyCheckInterval);
     lobbyCheckInterval = setInterval(async () => {
         try {
-            const response = await fetch(`${API_URL}/room_${myRoomPIN}?t=${Date.now()}`);
+            const response = await fetch(`${API_URL}/latest?t=${Date.now()}`, { method: 'GET', headers: { 'X-Master-Key': API_KEY } });
             if (response.ok) {
-                const roomData = await response.json();
-                if (isHost && roomData.status === "joined") {
-                    if (playerList) playerList.innerHTML = `<p style="color:#2ed573;">● 房主 (你) 已就位</p><p style="color:#2ed573;">● 🎉 隊友已成功聯機進來了！</p>`;
-                }
-                if (!isHost && roomData.status === "start") {
-                    clearInterval(lobbyCheckInterval);
-                    startSingleGame();
-                }
+                const json = await response.json(); let cloudData = json.record;
+                let roomData = cloudData && cloudData.rooms ? cloudData.rooms[`room_${myRoomPIN}`] : null;
+                if (isHost && roomData && roomData.status === "joined") { if (playerList) playerList.innerHTML = `<p style="color:#2ed573;">● 房主 (你) 已就位</p><p style="color:#2ed573;">● 🎉 隊友已成功聯機進來了！</p>`; }
+                if (!isHost && roomData && roomData.status === "start") { clearInterval(lobbyCheckInterval); startSingleGame(); }
             }
         } catch (e) {}
-    }, 1200);
+    }, 1500);
 }
-// ====== 基礎工具控制函式 ======
+// ====== 基礎工具與常規房間載入邏輯 ======
 function startTimer() { if (timerInterval) clearInterval(timerInterval); timerInterval = setInterval(() => { seconds++; if (timerEl) timerEl.innerText = `時間: ${seconds}秒`; }, 1000); }
 function showMessage(text) { if (messageBox) { messageBox.innerText = text; messageBox.style.opacity = 1; setTimeout(() => { messageBox.style.opacity = 0; }, 2800); } }
 function addClue(clueText) { if (!collectedClues.includes(clueText)) { collectedClues.push(clueText); updateNotebookUI(); } }
-function updateNotebookUI() { const listEl = document.getElementById("notebookList"); if (listEl) listEl.innerHTML = collectedClues.length === 0 ? "<li>尚未收集到任何線索...</li>" : collectedClues.map(c => `<li style="color: #6ee7b7; margin-bottom: 4px;">${c}</li>`).join(""); }
+function updateNotebookUI() { const listEl = document.getElementById("notebookList"); if (listEl) listEl.innerHTML = collectedClues.length === 0 ? "<li>尚未收集到任何線索...</li>" : collectedClues.map(c => `<li style="color: #6ee7b7; margin-bottom: 4px; white-space: pre-wrap;">${c}</li>`).join(""); }
 function toggleNotebook(show) { const modalEl = document.getElementById("notebookModal"); if (modalEl) modalEl.style.display = show ? "flex" : "none"; }
 
 function updateInventory() {
@@ -155,42 +160,25 @@ function updateInventory() {
         const slot = document.getElementById(`slot${i}`);
         if (slot) {
             slot.innerHTML = ""; slot.classList.remove("has-item");
-            if (inventory[i]) {
-                let itemVisual = document.createElement("div"); itemVisual.className = inventory[i].className;
-                slot.appendChild(itemVisual); slot.classList.add("has-item");
-            }
+            if (inventory[i]) { let itemVisual = document.createElement("div"); itemVisual.className = inventory[i].className; slot.appendChild(itemVisual); slot.classList.add("has-item"); }
         }
     }
 }
 
 function createControlPanel(htmlContent) {
-    let panel = document.getElementById("controlPanel");
-    if (!panel) { panel = document.createElement("div"); panel.id = "controlPanel"; panel.className = "control-panel"; }
+    let panel = document.getElementById("controlPanel"); if (!panel) { panel = document.createElement("div"); panel.id = "controlPanel"; panel.className = "control-panel"; }
     panel.innerHTML = htmlContent; if (roomView) roomView.appendChild(panel);
 }
 
-// ====== 🗺 第 1 關到第 8 關房間載入邏輯 ======
 function loadLevel() {
     const oldPanel = document.getElementById("controlPanel"); if (oldPanel) oldPanel.remove();
-    
-    // 清除舊動態道具，確保不誤刪常駐元件
-    const oldGameItems = roomView.querySelectorAll(".interactive-item");
-    oldGameItems.forEach(el => el.remove());
-    
+    const oldGameItems = roomView.querySelectorAll(".interactive-item"); oldGameItems.forEach(el => el.remove());
     document.getElementById("secretRoom").style.display = "none"; 
 
     if (currentLevel === 1) {
         if (roomTitle) roomTitle.innerText = "第 1 關：尋找密碼紙條";
-        let note = document.createElement("div"); 
-        note.className = "interactive-item css-paper"; 
-        note.style.left = "70px"; 
-        note.style.top = "150px";
-        note.style.position = "absolute";
-        
-        note.onclick = () => { 
-            showMessage(`紙條寫著密碼：${gamePasswords.level1}`); 
-            addClue(`【10進位】: ${chainL1_Original}\n➔【2進位】: ${chainL2_Binary}\n➔【16進位】: ${chainL3_Hex}\n➔【凱薩密碼】: ${chainL4_Caesar}\n➔【終極摩斯】: ${chainL5_Morse}`); 
-        };
+        let note = document.createElement("div"); note.className = "interactive-item css-paper"; note.style.left = "70px"; note.style.top = "150px"; note.style.position = "absolute";
+        note.onclick = () => { showMessage(`紙條寫著：第1關密碼 ${gamePasswords.level1}`); addClue(`★ 第1關密碼紙條提示：${gamePasswords.level1}`); };
         if (roomView) roomView.appendChild(note);
         createControlPanel(`<input type="text" id="p1" placeholder="輸入4位密碼" style="width:110px;"><button onclick="checkLevel1()">開門</button>`);
     } else if (currentLevel === 2) {
@@ -216,7 +204,8 @@ function loadLevel() {
         let p2 = document.createElement("div"); p2.className = "interactive-item css-cup"; p2.style.background = "rgba(0,0,255,0.5)"; p2.style.left = "220px"; p2.style.top = "200px"; p2.onclick = () => addPotion("藍"); if (roomView) roomView.appendChild(p2);
         let p3 = document.createElement("div"); p3.className = "interactive-item css-cup"; p3.style.background = "rgba(0,255,0,0.5)"; p3.style.left = "350px"; p3.style.top = "200px"; p3.onclick = () => addPotion("綠"); if (roomView) roomView.appendChild(p3);
         createControlPanel(`<span id="potionText" style="font-size:13px; color:#38bdf8; font-weight:bold;">已選序列: 無</span><button onclick="checkLevel4Advanced()">倒入混合 (需依照 藍->紅->綠 順序)</button>`);
-    } else if (currentLevel === 5) {
+    }
+    else if (currentLevel === 5) {
         if (roomTitle) roomTitle.innerText = "第 5 關：接通電線";
         levelState.wires = { 1: false, 2: false, 3: false };
         let wirePanel = document.createElement("div"); wirePanel.id = "controlPanel"; wirePanel.className = "control-panel"; wirePanel.style.flexDirection = "column"; wirePanel.style.gap = "8px";
@@ -225,97 +214,85 @@ function loadLevel() {
     } else if (currentLevel === 6) {
         if (roomTitle) roomTitle.innerText = "第 6 關：齒輪對齊";
         let gear = document.createElement("div"); gear.className = "interactive-item css-gear"; gear.style.left = "225px"; gear.style.top = "190px";
-        if (roomView) roomView.appendChild(gear);
-        createControlPanel(`<button onclick="checkLevel6()">對齊機械齒輪</button>`);
+        if (roomView) roomView.appendChild(gear); createControlPanel(`<button onclick="checkLevel6()">對齊機械齒輪</button>`);
     } else if (currentLevel === 7) {
         if (roomTitle) roomTitle.innerText = "第 7 關：雷射保全解除";
         let scanner = document.createElement("div"); scanner.className = "interactive-item css-terminal"; scanner.style.left = "220px"; scanner.style.top = "190px";
         scanner.onclick = () => { addClue(`第 7 關保全密碼：${gamePasswords.level7}`); showMessage(`保全終端機提示：預設解除密碼為 ${gamePasswords.level7}`); };
-        if (roomView) roomView.appendChild(scanner);
-        createControlPanel(`<input type="text" id="p7" placeholder="輸入保全密碼" style="width:110px;"><button onclick="checkLevel7()">解除保全</button>`);
+        if (roomView) roomView.appendChild(scanner); createControlPanel(`<input type="text" id="p7" placeholder="輸入保全密碼" style="width:110px;"><button onclick="checkLevel7()">解除保全</button>`);
     } else if (currentLevel === 8) {
         if (roomTitle) roomTitle.innerText = "第 8 關：終極逃生大門";
         levelState.finalPhase = "input";
         let hintObj = document.createElement("div"); hintObj.className = "interactive-item css-cup has-water"; hintObj.style.left = "235px"; hintObj.style.top = "170px";
         hintObj.onclick = () => { let keyItem = inventory.find(i => i.id === "key"); if (keyItem) { keyItem.washed = true; addClue(`終極提示：組合第1關與第3關密碼 (${gamePasswords.level8})`); showMessage(`你用水清洗鑰匙，浮現最終提示：「請輸入綜合密碼 ${gamePasswords.level8}」`); } else { showMessage("這裡需要用水清洗鑰匙上的特殊塗層..."); } };
-        if (roomView) roomView.appendChild(hintObj);
-        createControlPanel(`<div id="finalBox" style="display:flex; gap:6px; align-items:center; flex-wrap:wrap; justify-content:center;"><input type="text" id="p8" placeholder="輸入綜合密碼" style="width:140px;"><button onclick="checkLevel8Code()">送出密碼</button></div>`);
+        if (roomView) roomView.appendChild(hintObj); createControlPanel(`<div id="finalBox" style="display:flex; gap:6px; align-items:center; flex-wrap:wrap; justify-content:center;"><input type="text" id="p8" placeholder="輸入綜合密碼" style="width:140px;"><button onclick="checkLevel8Code()">送出密碼</button></div>`);
     }
 }
-// ====== 🔓 各關卡驗證與排行榜同步 ======
+
+// ====== 🔓 各關卡判定與地獄 5 層加密鏈彩蛋跳轉 ======
 function checkLevel1() {
-    let val = document.getElementById("p1").value;
+    let val = document.getElementById("p1").value.trim().toLowerCase();
     
-    // 💥 觸發地獄級五層加密鏈彩蛋
-    if (val === "hell" || val === "secret") {
-        showMessage("⚠️ 進入地獄級加密暗號空間！");
-        document.getElementById("secretRoom").style.display = "flex";
-        document.getElementById("secretMorseDisplay").innerText = chainL5_Morse;
+    // 💥【16進位彩蛋跳轉核心】：只有打入第 1 關密碼的 16 進位字串，才會跳轉並首度看見地獄摩斯密碼！
+    if (val === chainL3_Hex) {
+        showMessage("⚠️ 警告：系統偵測到16進位代碼，進入隱藏黑客房！");
+        document.getElementById("secretRoom").style.display = "flex"; 
+        document.getElementById("secretMorseDisplay").innerText = chainL5_Morse; 
         return;
     }
-    if (val === gamePasswords.level1) { showMessage("密碼正確！"); currentLevel = 2; setTimeout(loadLevel, 800); } 
-    else { showMessage("密碼錯誤！請查看筆記本"); }
+    
+    // 原本正確的 4 位數十進位密碼開門前往第二關
+    if (val === gamePasswords.level1) { showMessage("密碼正確！順利開門。"); currentLevel = 2; setTimeout(loadLevel, 800); } 
+    else { showMessage("密碼錯誤！請查看紙條。"); }
 }
 
 function checkSecretRoomCode() {
-    let input = document.getElementById("secretInput").value.trim().toLowerCase();
-    const terminal = document.getElementById("hintTerminalOutput");
+    let input = document.getElementById("secretInput").value.trim().toLowerCase(); const terminal = document.getElementById("hintTerminalOutput");
     if (input === "hint1") { terminal.innerText = `[層1-二進位] 全長度共: ${chainL2_Binary.length} 碼`; return; }
-    if (input === "hint2") { terminal.innerText = `[層2-十六進位串] 轉碼結果: ${chainL3_Hex}`; return; }
+    if (input === "hint2") { terminal.innerText = `[層2-十六進位串] 觸發暗號鑰匙就是: ${chainL3_Hex}`; return; }
     if (input === "hint3") { terminal.innerText = `[層3-凱薩密碼移位] 已完全打亂。`; return; }
-    if (input === "hint4") { terminal.innerText = `核心解鎖明文：就是【層3的結果字串】！`; return; }
-
-    if (input === chainL4_Caesar) {
-        alert("🎉 破解成功！直接跳級直達終局第 8 關！");
-        currentLevel = 8; loadLevel();
-    } else { alert("❌ 核心辨識碼錯誤！"); }
+    if (input === "hint4") { terminal.innerText = `核心解鎖明文：就是【層3（摩斯密碼翻譯前）的凱薩字串】！`; return; }
+    if (input === chainL4_Caesar) { alert("🎉 太神啦！地獄五層加密鏈完全破解！直接跳級直達終局第 8 關！"); currentLevel = 8; loadLevel(); } 
+    else { alert("❌ 核心辨識碼錯誤！"); }
 }
 
-function checkLevel2() { if (inventory.some(i => i.id === "key")) { showMessage("鑰匙解鎖成功！"); currentLevel = 3; setTimeout(loadLevel, 800); } else { showMessage("門鎖著，需要先拿鑰匙！"); } }
-function checkLevel3() { let val = document.getElementById("p3").value; if (val === gamePasswords.level3 && levelState.cupHasWater) { showMessage("解謎成功！"); currentLevel = 4; setTimeout(loadLevel, 800); } else { showMessage("密碼錯誤，或者杯子還沒加水！"); } }
+function checkLevel2() { if (inventory.some(i => i.id === "key")) { showMessage("鑰匙解鎖成功！"); currentLevel = 3; setTimeout(loadLevel, 800); } else { showMessage("門鎖著，需要鑰匙！"); } }
+function checkLevel3() { let val = document.getElementById("p3").value; if (val === gamePasswords.level3 && levelState.cupHasWater) { showMessage("解謎成功！"); currentLevel = 4; setTimeout(loadLevel, 800); } else { showMessage("密碼錯誤或杯子沒水！"); } }
 function addPotion(color) { if (levelState.pots.length < 3) { levelState.pots.push(color); const textEl = document.getElementById("potionText"); if (textEl) textEl.innerText = `已選序列: ${levelState.pots.join("->")}`; } else { showMessage("試管最多只能容納三種試劑！"); } }
-
-function checkLevel4Advanced() {
-    let p = levelState.pots;
-    if (p.length === 3 && p[0] === "藍" && p[1] === "紅" && p[2] === "綠") { showMessage("三色順序完全融合！化學反應開啟大門！"); currentLevel = 5; setTimeout(loadLevel, 800); } 
-    else { showMessage("配方順序錯誤，試管冒出黑煙失敗！"); levelState.pots = []; const textEl = document.getElementById("potionText"); if (textEl) textEl.innerText = `已選序列: 無`; }
-}
-
+function checkLevel4Advanced() { let p = levelState.pots; if (p.length === 3 && p === "藍" && p === "紅" && p === "綠") { showMessage("三色順序完全融合！化學反應開啟大門！"); currentLevel = 5; setTimeout(loadLevel, 800); } else { showMessage("配方順序錯誤，試管冒出黑煙失敗！"); levelState.pots = []; const textEl = document.getElementById("potionText"); if (textEl) textEl.innerText = `已選序列: 無`; } }
 function toggleWire(num) { levelState.wires[num] = !levelState.wires[num]; let el = document.getElementById(`w${num}`); if (el) { if (levelState.wires[num]) el.classList.add("connected"); else el.classList.remove("connected"); } }
-function checkLevel5() { let w = levelState.wires; if (w && w[1] && w[2] && w[3]) { showMessage("電流接通！"); currentLevel = 6; setTimeout(loadLevel, 800); } else { showMessage("還有電線是斷路的！"); } }
+function checkLevel5() { let w = levelState.wires; if (w && w && w) { showMessage("電流接通！"); currentLevel = 6; setTimeout(loadLevel, 800); } else { showMessage("還有電線是斷路的！"); } }
 function checkLevel6() { showMessage("齒輪完美對齊！"); currentLevel = 7; setTimeout(loadLevel, 800); }
 function checkLevel7() { let val = document.getElementById("p7").value; if (val === gamePasswords.level7) { showMessage("保全系統解除！"); currentLevel = 8; setTimeout(loadLevel, 800); } else { showMessage("保全密碼錯誤！"); } }
-function checkLevel8Code() { let val = document.getElementById("p8").value; let keyItem = inventory.find(i => i.id === "key"); if (val === gamePasswords.level8) { if (keyItem && keyItem.washed) { levelState.finalPhase = "insertKey"; const boxEl = document.getElementById("finalBox"); if (boxEl) { boxEl.innerHTML = `<button onclick="checkLevel8Key()" style="background-color:#2ed573; color:#fff;">插入鑰匙逃脫！</button>`; } showMessage("密碼正確！請插入鑰匙！"); } else { showMessage("密碼正確，但鑰匙還沒用水清洗過！"); } } else { showMessage("綜合密碼錯誤！提示：請檢視筆記本中的第1關與第3關密碼。"); } }
+function checkLevel8Code() { let val = document.getElementById("p8").value; let keyItem = inventory.find(i => i.id === "key"); if (val === gamePasswords.level8) { if (keyItem && keyItem.washed) { levelState.finalPhase = "insertKey"; const boxEl = document.getElementById("finalBox"); if (boxEl) { boxEl.innerHTML = `<button onclick="checkLevel8Key()" style="background-color:#2ed573; color:#fff; border:none; padding:6px 12px; cursor:pointer; border-radius:4px;">插入鑰匙逃脫！</button>`; } showMessage("密碼正確！請插入鑰匙！"); } else { showMessage("密碼正確，但鑰匙還沒用水清洗過！"); } } else { showMessage("綜合密碼錯誤！"); } }
 function checkLevel8Key() { let keyItem = inventory.find(i => i.id === "key"); if (keyItem && keyItem.washed) endGame(); }
-
+// ====== 🏁 全自動跨裝置 jsonbin.io 雲端排行榜引擎 ======
 function endGame() {
-    clearInterval(timerInterval);
-    if (mainDoor) mainDoor.style.display = "none";
+    clearInterval(timerInterval); if (mainDoor) mainDoor.style.display = "none";
     let score = seconds <= 60 ? 100 : Math.max(10, 100 - Math.floor((seconds - 60) / 5));
-    let rankEmoji = seconds <= 60 ? "🥇" : (seconds <= 120 ? "🥈" : "🥉");
-    let rankTitle = seconds <= 60 ? "第一名 (閃電通關王)" : "優秀解謎者";
+    let rankEmoji = seconds <= 60 ? "🥇" : (seconds <= 120 ? "🥈" : "🥉"); let rankTitle = seconds <= 60 ? "第一名 (閃電通關王)" : "優秀解謎者";
     let playerName = prompt("🎉 成功通關！請輸入你的名字留在排行榜上：") || "無名英雄";
 
     (async function handleCloudLeaderboard() {
-        showMessage("正在同步雲端排行榜...");
-        if (isMultiplayer && myRoomPIN) { try { await fetch(`${API_URL}/room_${myRoomPIN}`, { method: 'DELETE' }); } catch(e) {} }
+        showMessage("正在同步雲端排行榜..."); let cloudData = { rooms: {}, leaderboard: [] };
         try {
-            const response = await fetch(`${API_URL}/global_leaderboard?t=${Date.now()}`);
-            if (response.ok) { const textData = await response.text(); leaderboard = textData ? JSON.parse(textData) : []; }
+            const response = await fetch(`${API_URL}/latest?t=${Date.now()}`, { method: 'GET', headers: { 'X-Master-Key': API_KEY } });
+            if (response.ok) { const json = await response.json(); cloudData = json.record || cloudData; leaderboard = cloudData.leaderboard || []; }
         } catch (e) { leaderboard = JSON.parse(localStorage.getItem("wifi_game_leaderboard") || "[]"); }
 
         let existingRecordIndex = leaderboard.findIndex(item => item.name === playerName);
         if (existingRecordIndex !== -1) {
             if (score > leaderboard[existingRecordIndex].score || (score === leaderboard[existingRecordIndex].score && seconds < leaderboard[existingRecordIndex].time)) {
-                leaderboard[existingRecordIndex] = { name: playerName, time: seconds, score: score, date: new Date().toLocaleDateString() };
-                showMessage("🏆 刷新最高紀錄！");
+                leaderboard[existingRecordIndex] = { name: playerName, time: seconds, score: score, date: new Date().toLocaleDateString() }; showMessage("🏆 刷新最高紀錄！");
             }
         } else { leaderboard.push({ name: playerName, time: seconds, score: score, date: new Date().toLocaleDateString() }); }
 
-        leaderboard.sort((a, b) => b.score - a.score || a.time - b.time);
+        leaderboard.sort((a, b) => b.score - a.score || a.time - b.time); cloudData.leaderboard = leaderboard;
+        if (cloudData.rooms && cloudData.rooms[`room_${myRoomPIN}`]) { delete cloudData.rooms[`room_${myRoomPIN}`]; }
+
         try {
             localStorage.setItem("wifi_game_leaderboard", JSON.stringify(leaderboard));
-            await fetch(`${API_URL}/global_leaderboard`, { method: 'PUT', body: JSON.stringify(leaderboard) });
+            await fetch(API_URL, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY }, body: JSON.stringify(cloudData) });
         } catch (error) {}
 
         let top3 = leaderboard.slice(0, 3);
@@ -332,7 +309,7 @@ function endGame() {
                     <button onclick="location.reload()" style="background-color: #4b6584; color: #fff; padding: 8px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; border: none; margin-top: 5px;">再挑戰一次</button>
                 </div>`;
         }
-        const barEl = document.getElementById("inventoryBar"); if (barEl) barEl.style.display = "none";
+        if (document.getElementById("inventoryBar")) document.getElementById("inventoryBar").style.display = "none";
     })();
 }
 
@@ -340,8 +317,8 @@ async function expandLeaderboard() {
     const listEl = document.getElementById("mainRankList"); const btnEl = document.getElementById("showMoreBtn");
     if (listEl) listEl.innerHTML = "<li>正在連線雲端更新排行...</li>";
     try {
-        const response = await fetch(`${API_URL}/global_leaderboard?t=${Date.now()}`);
-        if (response.ok) { leaderboard = await response.json(); }
+        const response = await fetch(`${API_URL}/latest?t=${Date.now()}`, { method: 'GET', headers: { 'X-Master-Key': API_KEY } });
+        if (response.ok) { const json = await response.json(); leaderboard = json.record ? (json.record.leaderboard || []) : []; }
     } catch (e) {}
     if (listEl) {
         listEl.innerHTML = leaderboard.map((item, index) => `<li style="margin: 6px 0; display: flex; justify-content: space-between; border-bottom: 1px dashed rgba(255,255,255,0.1); padding-bottom: 4px;"><span style="color: ${index < 3 ? '#ffd700' : '#cbd5e0'}; font-weight: bold;">第 ${index + 1} 名：${item.name}</span><span style="color: #ffffff;">${item.score} 分 <span style="color: #666; font-size: 11px;">(${item.time}s)</span></span></li>`).join("");
