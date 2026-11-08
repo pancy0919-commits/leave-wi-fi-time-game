@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Leave Wi-Fi Time Game - 雲端聯機版</title>
+    <title>Leave Wi-Fi Time Game - 地獄加密鏈版</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -12,7 +12,7 @@
         <!-- 🚪 主選單介面 -->
         <div class="menu-view" id="menuView">
             <h1 style="color: #00d2d3; margin-bottom: 5px; font-size: 24px; letter-spacing: 1px;">Leave Wi-Fi Time</h1>
-            <p style="font-size: 12px; color: #a0aec0; margin-bottom: 25px;">Version 5.0 - 雲端即時聯機排行版</p>
+            <p style="font-size: 12px; color: #a0aec0; margin-bottom: 25px;">Version 7.0 - 五層地獄加密魔王版</p>
             
             <div class="menu-buttons">
                 <button class="menu-btn" onclick="startSingleGame()">👤 單人模式挑戰</button>
@@ -20,17 +20,14 @@
                 <button class="menu-btn" onclick="joinRoomMenu()">🔑 加入他人房間</button>
             </div>
 
-            <!-- 聯機互動面板 -->
             <div id="mpPanel" class="mp-panel" style="display: none; margin-top: 15px; padding: 12px; background: rgba(255,255,255,0.05); border-radius: 6px; width: 80%; box-sizing: border-box;"></div>
         </div>
 
-        <!-- ⏳ 多人聯機等候室介面 (新擴充：當成功連線時會顯示這裡) -->
+        <!-- ⏳ 多人聯機等候室介面 -->
         <div class="menu-view" id="lobbyView" style="display: none;">
             <h2 style="color: #ffd700; margin-bottom: 5px;">🎮 聯機等候室</h2>
             <p id="lobbyStatus" style="font-size: 14px; color: #cbd5e0; margin-bottom: 20px;">正在等待隊友...</p>
-            <div id="playerList" style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 6px; width: 80%; text-align: left; margin-bottom: 20px; font-size: 14px;">
-                <!-- JavaScript 會動態在此填入玩家狀態 -->
-            </div>
+            <div id="playerList" style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 6px; width: 80%; text-align: left; margin-bottom: 20px; font-size: 14px;"></div>
             <button class="menu-btn" id="hostStartBtn" onclick="hostLaunchGame()" style="display: none; background-color: #2ed573;">🚀 全員到齊，啟動遊戲</button>
             <p id="clientWaitText" style="display: none; color: #00d2d3; font-size: 13px; animation: pulse 1.5s infinite;">等待房主啟動遊戲中...</p>
         </div>
@@ -47,6 +44,28 @@
 
             <div class="room-view" id="roomView">
                 <div class="door" id="mainDoor">門</div>
+                
+                <!-- 👁️ 地獄級密碼秘密房間 -->
+                <div id="secretRoom" style="display: none; position: absolute; top:0; left:0; width:100%; height:100%; background:#070c0e; z-index: 5; flex-direction: column; align-items: center; justify-content: center; padding: 15px; box-sizing: border-box; border-radius: 12px;">
+                    <h3 style="color:#ff3333; font-family: monospace; font-size:14px; margin:0 0 5px 0; text-shadow: 0 0 5px #ff3333; animation: pulse 1s infinite;">⚠️ SYSTEM OVERFLOW - 五層地獄加密鏈已啟動</h3>
+                    
+                    <div style="width: 90%; background: #000; border: 1px solid #ff3333; padding: 10px; border-radius: 4px; margin-bottom: 10px;">
+                        <span style="color: #aaa; font-size: 11px; font-family: monospace;">[ 攔截到的地獄級超長摩斯密碼 ]</span>
+                        <div id="secretMorseDisplay" style="color: #ff3333; font-family: monospace; font-size: 11px; word-break: break-all; margin-top: 5px; max-height: 80px; overflow-y: auto;"></div>
+                    </div>
+
+                    <!-- 🛠️ 解密工具台 -->
+                    <div style="width: 90%; background: #111; border: 1px solid #00ff00; padding: 8px; font-family: monospace; font-size: 11px; color: #00ff00; margin-bottom: 10px;">
+                        <div>💡 密碼台控制面板：輸入下方指令可逐步解密提示</div>
+                        <div id="hintTerminalOutput" style="color: #cbd5e0; margin-top: 4px; min-height: 20px;">[輸入 hint1 查第一層 / hint2 查第二層...]</div>
+                    </div>
+
+                    <div style="display:flex; gap:6px;">
+                        <input type="text" id="secretInput" placeholder="輸入指令或最終解鎖密碼" style="width:160px; border-color:#ff3333; color:#ff3333;">
+                        <button onclick="checkSecretRoomCode()" style="background:#ff3333; color:#fff; font-size:12px;">解除</button>
+                    </div>
+                </div>
+
                 <div id="messageBox" class="message-box" style="opacity: 0;">提示訊息</div>
             </div>
 
